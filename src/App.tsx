@@ -15,6 +15,7 @@ import DepartmentsPage from './pages/DepartmentsPage'
 import ShiftsPage from './pages/ShiftsPage'
 import LogsPage from './pages/LogsPage'
 import EmployeePortalPage from './pages/EmployeePortalPage'
+import EmployeeRecordsPage from './pages/EmployeeRecordsPage'
 import Layout from './components/common/Layout'
 
 function PrivateRoute({ children }) {
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="shifts"     element={<ShiftsPage />} />
           <Route path="logs"       element={<LogsPage />} />
           <Route path="portal"     element={<EmployeePortalPage />} />
+          <Route path="records"    element={<EmployeeRecordsPage />} />
         </Route>
       </Routes>
     </HashRouter>
