@@ -1,5 +1,7 @@
 // @ts-nocheck
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { attendanceApi } from '../lib/api'
+import toast from 'react-hot-toast'
 
 const MY_DATA = {
   code: 'EMP-001', name: 'Zara Ahmed', email: 'zara@soos.io',
@@ -45,6 +47,38 @@ export default function EmployeePortalPage() {
   const [showApply, setShowApply] = useState(false)
   const [form, setForm] = useState({ type: 'Annual', from: '', to: '', reason: '' })
   const [msg, setMsg] = useState('')
+
+  // Real check-in/check-out, backed by the local backend (server/data/db.json)
+  const [today, setToday] = useState(null) // today's attendance record, or null if not checked in yet
+  const [busy, setBusy] = useState(false)
+
+  const loadToday = () => {
+    const dateStr = new Date().toISOString().slice(0, 10)
+    attendanceApi.list({ date_from: dateStr, date_to: dateStr })
+      .then(r => {
+        const mine = (r.data || []).find(rec => String(rec.employee_id) === MY_DATA.code)
+        setToday(mine || null)
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => { loadToday() }, [])
+
+  const doCheckIn = () => {
+    setBusy(true)
+    attendanceApi.checkin({ employee_id: MY_DATA.code, employee_name: MY_DATA.name })
+      .then(() => { toast.success('Checked in!'); loadToday() })
+      .catch(e => toast.error(e.message || 'Check-in failed'))
+      .finally(() => setBusy(false))
+  }
+
+  const doCheckOut = () => {
+    setBusy(true)
+    attendanceApi.checkout({ employee_id: MY_DATA.code })
+      .then(() => { toast.success('Checked out!'); loadToday() })
+      .catch(e => toast.error(e.message || 'Check-out failed'))
+      .finally(() => setBusy(false))
+  }
 
   const calcDays = () => {
     if (!form.from || !form.to) return 0
@@ -92,6 +126,28 @@ export default function EmployeePortalPage() {
       </div>
 
       {msg && <div style={{ padding: '12px 16px', background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 10, color: '#34d399', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>{msg}</div>}
+
+      {/* Today's Check In / Check Out — writes to the real backend */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, padding: '16px 20px', marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 12, color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Today</div>
+          <div style={{ fontSize: 14, marginTop: 4 }}>
+            {!today && <span style={{ color: '#94a3b8' }}>Not checked in yet</span>}
+            {today && !today.check_out_time && <span style={{ color: '#34d399', fontWeight: 700 }}>Checked in at {new Date(today.check_in_time).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}</span>}
+            {today && today.check_out_time && <span style={{ color: '#60a5fa', fontWeight: 700 }}>Checked out at {new Date(today.check_out_time).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })} · {today.total_hours}h worked</span>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={doCheckIn} disabled={busy || (today && !today.check_out_time)}
+            style={{ padding: '10px 20px', background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 10, color: '#0f172a', fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: (busy || (today && !today.check_out_time)) ? 0.5 : 1 }}>
+            ↗ Check In
+          </button>
+          <button onClick={doCheckOut} disabled={busy || !today || !!today.check_out_time}
+            style={{ padding: '10px 20px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', borderRadius: 10, color: '#60a5fa', fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: (busy || !today || !!today.check_out_time) ? 0.5 : 1 }}>
+            ↙ Check Out
+          </button>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 12, padding: 4, marginBottom: 24, width: 'fit-content' }}>

@@ -117,13 +117,20 @@ app.get('/api/attendance', (req, res) => {
 
 app.post('/api/attendance/checkin', (req, res) => {
   const db = readDb();
+  const { employee_id, employee_name, late_minutes } = req.body || {};
+  const now = new Date();
+  const status = Number(late_minutes) > 0 ? 'late' : 'present';
   const record = {
     id: nextId(db.attendance),
-    date: new Date().toISOString().slice(0, 10),
-    checkIn: new Date().toISOString(),
-    checkOut: null,
-    status: 'present',
-    ...req.body,
+    employee_id: employee_id != null ? String(employee_id) : null,
+    employee_name: employee_name || null,
+    date: now.toISOString().slice(0, 10),
+    check_in_time: now.toISOString(),
+    check_out_time: null,
+    total_hours: null,
+    late_minutes: Number(late_minutes) || 0,
+    status,
+    is_manual_override: !!req.body.is_manual_override,
   };
   db.attendance.push(record);
   writeLog(db, { action: 'Check-in', target: record.employee_name || `Employee #${record.employee_id ?? ''}`, detail: 'Checked in', module: 'Employees', severity: 'info' });
@@ -135,10 +142,13 @@ app.post('/api/attendance/checkout', (req, res) => {
   const db = readDb();
   const { employee_id } = req.body || {};
   const idx = db.attendance.findIndex(
-    (r) => String(r.employee_id) === String(employee_id) && !r.checkOut
+    (r) => String(r.employee_id) === String(employee_id) && !r.check_out_time
   );
   if (idx === -1) return res.status(404).json({ error: 'No open check-in found' });
-  db.attendance[idx].checkOut = new Date().toISOString();
+  const now = new Date();
+  db.attendance[idx].check_out_time = now.toISOString();
+  const hrs = (now - new Date(db.attendance[idx].check_in_time)) / (1000 * 60 * 60);
+  db.attendance[idx].total_hours = Math.round(hrs * 100) / 100;
   writeLog(db, { action: 'Check-out', target: db.attendance[idx].employee_name || `Employee #${employee_id}`, detail: 'Checked out', module: 'Employees', severity: 'info' });
   writeDb(db);
   res.json(db.attendance[idx]);
