@@ -3,8 +3,17 @@
 @tailwind utilities;
 
 @layer base {
+  /* Force native form controls (select dropdowns, checkboxes, date pickers)
+     to always render in light mode with dark, readable text — otherwise
+     Chrome/Edge auto-dark-mode makes <option> text nearly invisible on
+     their white dropdown background when the OS/browser is set to dark. */
+  :root { color-scheme: light; }
   body { @apply bg-gray-50 text-gray-900 font-sans; }
   * { @apply box-border; }
+  select, option {
+    color: #111827 !important; /* text-gray-900 */
+    background-color: #ffffff !important;
+  }
 }
 
 @layer components {

@@ -1,6 +1,13 @@
-const { app, BrowserWindow, shell } = require('electron')
+const { app, BrowserWindow, shell, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs')
+
+// Force light theme regardless of the OS setting. Without this, on a
+// Windows machine with dark mode enabled, Chromium renders native form
+// controls (like <select> dropdown popups) using dark-mode colors —
+// light gray text on a white list — making them unreadable, even though
+// the rest of the app's CSS is explicitly light-themed.
+nativeTheme.themeSource = 'light'
 
 let mainWindow
 
