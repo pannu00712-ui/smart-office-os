@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { api } from "../lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AttendanceRule {
@@ -1048,12 +1049,25 @@ const ActionMenu = ({ emp, onAction }: { emp: Employee; onAction: (a: string, e:
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterAttendance, setFilterAttendance] = useState("");
   const [modal, setModal] = useState<{ type: string; emp?: Employee } | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError("");
+    api.getEmployees()
+      .then((res: any) => setEmployees(Array.isArray(res) ? res : res?.data || []))
+      .catch((err: any) => setError(err.message || "Failed to load employees"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
 
   const total    = employees.length;
   const present  = employees.filter(e => e.attendanceStatus === "present").length;
@@ -1068,18 +1082,36 @@ export default function EmployeesPage() {
   });
 
   const handleAction = (action: string, emp: Employee) => {
-    if (action === "toggle") setEmployees(es => es.map(e => e.id === emp.id ? { ...e, status: e.status === "active" ? "inactive" : "active" } : e));
+    if (action === "toggle") {
+      const nextStatus = emp.status === "active" ? "inactive" : "active";
+      setError("");
+      api.updateEmployee(emp.id, { ...emp, status: nextStatus })
+        .then(load)
+        .catch((err: any) => setError(err.message || "Failed to update employee"));
+    }
     else setModal({ type: action === "delete" ? "confirm-delete" : action === "resetface" ? "confirm-reset" : action, emp });
   };
 
   const handleSave = (data: FormData) => {
+    setError("");
+    const payload = { ...data, salary: Number(data.salary) };
     if (modal?.type === "edit" && modal.emp) {
-      setEmployees(es => es.map(e => e.id === modal.emp!.id ? { ...e, ...data, salary: Number(data.salary), status: (data.status as "active" | "inactive") } : e as Employee));
+      api.updateEmployee(modal.emp.id, payload)
+        .then(load)
+        .catch((err: any) => setError(err.message || "Failed to save employee"));
     } else {
-      const newEmp: Employee = { id: Date.now(), ...data, salary: Number(data.salary), faceEnrolled: false, attendanceStatus: "-", lastCheckIn: null, photo: null, payslipHistory: [] };
-      setEmployees(es => [...es, newEmp]);
+      api.createEmployee({ ...payload, faceEnrolled: false, attendanceStatus: "-", lastCheckIn: null, photo: null, payslipHistory: [] })
+        .then(load)
+        .catch((err: any) => setError(err.message || "Failed to create employee"));
     }
     setModal(null);
+  };
+
+  const handleDelete = (emp: Employee) => {
+    setError("");
+    api.deleteEmployee(emp.id)
+      .then(load)
+      .catch((err: any) => setError(err.message || "Failed to delete employee"));
   };
 
   const thStyle: React.CSSProperties = { padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap", borderBottom: "1px solid #1e2d45" };
@@ -1111,6 +1143,8 @@ export default function EmployeesPage() {
           <StatCard label="Late Today"      value={late}     accent="#fbbf24" icon="⏰" />
           <StatCard label="Face Enrolled"   value={enrolled} accent="#818cf8" icon="🤳" />
         </div>
+
+        {error && <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 10, padding: "10px 14px", color: "#f87171", fontSize: 12, marginBottom: 16 }}>⚠ {error}</div>}
 
         {/* Filters */}
         <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
@@ -1155,7 +1189,9 @@ export default function EmployeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0
+                {loading
+                  ? <tr><td colSpan={15} style={{ ...tdStyle, textAlign: "center", padding: "60px 20px", color: "#475569" }}>Loading employees…</td></tr>
+                  : filtered.length === 0
                   ? <tr><td colSpan={15} style={{ ...tdStyle, textAlign: "center", padding: "60px 20px", color: "#475569" }}>No employees found</td></tr>
                   : filtered.map(emp => (
                     <tr key={emp.id}
@@ -1221,13 +1257,16 @@ export default function EmployeesPage() {
       {modal?.type === "confirm-delete" && modal.emp && (
         <Modal title="Delete Employee" onClose={() => setModal(null)}>
           <ConfirmModal title="" message={`Permanently delete ${modal.emp.firstName} ${modal.emp.lastName}? This cannot be undone.`} accent="#ef4444"
-            onConfirm={() => setEmployees(es => es.filter(e => e.id !== modal.emp!.id))} onClose={() => setModal(null)} />
+            onConfirm={() => handleDelete(modal.emp!)} onClose={() => setModal(null)} />
         </Modal>
       )}
       {modal?.type === "confirm-reset" && modal.emp && (
         <Modal title="Reset Face Data" onClose={() => setModal(null)}>
           <ConfirmModal title="" message={`Delete all facial embeddings for ${modal.emp.firstName} ${modal.emp.lastName}? They'll need re-enrollment.`} accent="#f59e0b"
-            onConfirm={() => setEmployees(es => es.map(e => e.id === modal.emp!.id ? { ...e, faceEnrolled: false } : e))} onClose={() => setModal(null)} />
+            onConfirm={() => {
+              setError("");
+              api.updateEmployee(modal.emp!.id, { ...modal.emp, faceEnrolled: false }).then(load).catch((err: any) => setError(err.message || "Failed to reset face data"));
+            }} onClose={() => setModal(null)} />
         </Modal>
       )}
     </>

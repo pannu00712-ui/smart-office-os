@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { api } from "../lib/api";
 
 // ─── Pakistan Income Tax Slabs 2024-25 ───────────────────────────────────────
 const TAX_SLABS = [
@@ -254,18 +255,30 @@ const TaxCalculator = ({ onClose }) => {
 };
 
 // ─── Loan Management Component ────────────────────────────────────────────────
-const LoanModal = ({ loans, setLoans, onClose }) => {
+const LoanModal = ({ loans, employees, onCreated, onClose }) => {
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ empId: 1, type: 'Personal Loan', principal: '', monthlyInstallment: '', startDate: '', endDate: '', purpose: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ empId: employees[0]?.id || 1, type: 'Personal Loan', principal: '', monthlyInstallment: '', startDate: '', endDate: '', purpose: '' });
 
-  const empOptions = MOCK_EMPLOYEES.filter(e => e.status === 'active');
+  const empOptions = employees.filter(e => e.status === 'active');
   const inp = { background: '#0d1526', border: '1px solid #1e2d45', borderRadius: 8, padding: '8px 12px', color: '#f1f5f9', fontSize: 13, outline: 'none', width: '100%', fontFamily: 'inherit' };
   const lbl = { fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 };
 
   const addLoan = () => {
-    const emp = MOCK_EMPLOYEES.find(e => e.id === Number(form.empId));
-    setLoans(p => [...p, { ...form, id: Date.now(), empId: Number(form.empId), empName: `${emp.firstName} ${emp.lastName}`, empCode: emp.code, principal: Number(form.principal), remaining: Number(form.principal), monthlyInstallment: Number(form.monthlyInstallment), status: 'active' }]);
-    setShowAdd(false);
+    const emp = employees.find(e => e.id === Number(form.empId));
+    if (!emp) return;
+    setSaving(true);
+    setError('');
+    api.createLoan({
+      empId: Number(form.empId), empName: `${emp.firstName} ${emp.lastName}`, empCode: emp.code,
+      type: form.type, principal: Number(form.principal), remaining: Number(form.principal),
+      monthlyInstallment: Number(form.monthlyInstallment), startDate: form.startDate, endDate: form.endDate,
+      purpose: form.purpose, status: 'active',
+    })
+      .then(() => { onCreated(); setShowAdd(false); })
+      .catch(err => setError(err.message || 'Failed to create loan'))
+      .finally(() => setSaving(false));
   };
 
   return (
@@ -299,9 +312,10 @@ const LoanModal = ({ loans, setLoans, onClose }) => {
               <div><label style={lbl}>End Date</label><input type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} style={inp} /></div>
               <div style={{ gridColumn: '1/-1' }}><label style={lbl}>Purpose</label><input value={form.purpose} onChange={e => setForm(p => ({ ...p, purpose: e.target.value }))} style={inp} placeholder="Loan purpose..." /></div>
             </div>
+            {error && <div style={{ color: '#f87171', fontSize: 12, marginTop: 10 }}>⚠ {error}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e2d45', borderRadius: 8, color: '#64748b', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-              <button onClick={addLoan} style={{ flex: 2, padding: 8, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 8, color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>Save Loan</button>
+              <button onClick={addLoan} disabled={saving} style={{ flex: 2, padding: 8, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 8, color: '#0f172a', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving…' : 'Save Loan'}</button>
             </div>
           </div>
         )}
@@ -341,16 +355,31 @@ const LoanModal = ({ loans, setLoans, onClose }) => {
 };
 
 // ─── Bonus Management Component ───────────────────────────────────────────────
-const BonusModal = ({ bonuses, setBonuses, month, onClose }) => {
+const BonusModal = ({ bonuses, employees, month, onCreated, onClose }) => {
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ empId: 1, type: 'Performance', amount: '', reason: '', status: 'pending' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({ empId: employees[0]?.id || 1, type: 'Performance', amount: '', reason: '', status: 'pending' });
   const inp = { background: '#0d1526', border: '1px solid #1e2d45', borderRadius: 8, padding: '8px 12px', color: '#f1f5f9', fontSize: 13, outline: 'none', width: '100%', fontFamily: 'inherit' };
   const lbl = { fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 };
 
   const addBonus = () => {
-    const emp = MOCK_EMPLOYEES.find(e => e.id === Number(form.empId));
-    setBonuses(p => [...p, { ...form, id: Date.now(), empId: Number(form.empId), empName: `${emp.firstName} ${emp.lastName}`, empCode: emp.code, amount: Number(form.amount), month }]);
-    setShowAdd(false);
+    const emp = employees.find(e => e.id === Number(form.empId));
+    if (!emp) return;
+    setSaving(true);
+    setError('');
+    api.createBonus({
+      empId: Number(form.empId), empName: `${emp.firstName} ${emp.lastName}`, empCode: emp.code,
+      type: form.type, amount: Number(form.amount), reason: form.reason, status: form.status, month,
+    })
+      .then(() => { onCreated(); setShowAdd(false); })
+      .catch(err => setError(err.message || 'Failed to create bonus'))
+      .finally(() => setSaving(false));
+  };
+
+  const updateStatus = (id, status) => {
+    setError('');
+    api.updateBonusStatus(id, status).then(onCreated).catch(err => setError(err.message || 'Failed to update bonus'));
   };
 
   const STATUS_COL = { approved: '#34d399', pending: '#fbbf24', rejected: '#f87171' };
@@ -372,7 +401,7 @@ const BonusModal = ({ bonuses, setBonuses, month, onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div><label style={lbl}>Employee</label>
                 <select value={form.empId} onChange={e => setForm(p => ({ ...p, empId: e.target.value }))} style={inp}>
-                  {MOCK_EMPLOYEES.filter(e => e.status === 'active').map(e => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
+                  {employees.filter(e => e.status === 'active').map(e => <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>)}
                 </select>
               </div>
               <div><label style={lbl}>Bonus Type</label>
@@ -389,9 +418,10 @@ const BonusModal = ({ bonuses, setBonuses, month, onClose }) => {
               </div>
               <div style={{ gridColumn: '1/-1' }}><label style={lbl}>Reason</label><input value={form.reason} onChange={e => setForm(p => ({ ...p, reason: e.target.value }))} style={inp} placeholder="Reason for bonus..." /></div>
             </div>
+            {error && <div style={{ color: '#f87171', fontSize: 12, marginTop: 10 }}>⚠ {error}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button onClick={() => setShowAdd(false)} style={{ flex: 1, padding: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e2d45', borderRadius: 8, color: '#64748b', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-              <button onClick={addBonus} style={{ flex: 2, padding: 8, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 8, color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>Save</button>
+              <button onClick={addBonus} disabled={saving} style={{ flex: 2, padding: 8, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 8, color: '#0f172a', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving…' : 'Save'}</button>
             </div>
           </div>
         )}
@@ -405,13 +435,12 @@ const BonusModal = ({ bonuses, setBonuses, month, onClose }) => {
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#34d399', fontFamily: 'monospace' }}>PKR {fmt(b.amount)}</div>
-              <select value={b.status} onChange={e => setBonuses(p => p.map(x => x.id === b.id ? { ...x, status: e.target.value } : x))}
+              <select value={b.status} onChange={e => updateStatus(b.id, e.target.value)}
                 style={{ background: STATUS_COL[b.status] + '20', border: `1px solid ${STATUS_COL[b.status]}50`, borderRadius: 8, padding: '4px 8px', color: STATUS_COL[b.status], fontWeight: 700, fontSize: 11, cursor: 'pointer', outline: 'none' }}>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
-              <button onClick={() => setBonuses(p => p.filter(x => x.id !== b.id))} style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 6, color: '#f87171', cursor: 'pointer', padding: '4px 8px', fontSize: 12 }}>🗑</button>
             </div>
           </div>
         ))}
@@ -430,9 +459,12 @@ const StatusBadge = ({ status }) => {
 // ─── Main PayrollPage ─────────────────────────────────────────────────────────
 export default function PayrollPage() {
   const [month, setMonth] = useState(MONTHS[0].value);
-  const [loans, setLoans] = useState(INIT_LOANS);
-  const [bonuses, setBonuses] = useState(INIT_BONUSES);
-  const [entries, setEntries] = useState(() => MOCK_EMPLOYEES.map(e => calcEntry(e, MONTHS[0].value, INIT_BONUSES, INIT_LOANS)));
+  const [employees, setEmployees] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [bonuses, setBonuses] = useState([]);
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [runStatus, setRunStatus] = useState("idle");
   const [showTax, setShowTax] = useState(false);
   const [showLoans, setShowLoans] = useState(false);
@@ -440,24 +472,58 @@ export default function PayrollPage() {
   const [viewEntry, setViewEntry] = useState(null);
   const [deptFilter, setDeptFilter] = useState("All");
 
-  const handleMonthChange = (m) => {
-    setMonth(m);
-    setEntries(MOCK_EMPLOYEES.map(e => calcEntry(e, m, bonuses, loans)));
+  const loadEmployees = () => api.getEmployees()
+    .then(res => setEmployees(Array.isArray(res) ? res : res?.data || []))
+    .catch(err => setError(err.message || "Failed to load employees"));
+
+  const loadLoans = () => api.getLoans()
+    .then(res => setLoans(Array.isArray(res) ? res : res?.data || []))
+    .catch(err => setError(err.message || "Failed to load loans"));
+
+  const loadBonuses = (m) => api.getBonuses(m)
+    .then(res => setBonuses(Array.isArray(res) ? res : res?.data || []))
+    .catch(err => setError(err.message || "Failed to load bonuses"));
+
+  // Initial load: employees + loans once
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([loadEmployees(), loadLoans()]).finally(() => setLoading(false));
+  }, []);
+
+  // Load bonuses for the current month (also covers the initial month on mount)
+  useEffect(() => { loadBonuses(month); }, [month]);
+
+  // Recompute payroll entries whenever the underlying data changes
+  useEffect(() => {
+    setEntries(employees.map(e => calcEntry(e, month, bonuses, loans)));
     setRunStatus("idle");
-  };
+  }, [employees, bonuses, loans, month]);
+
+  const handleMonthChange = (m) => setMonth(m);
 
   const toggleSelect = (id) => setEntries(es => es.map(e => e.emp.id === id ? { ...e, selected: !e.selected } : e));
   const toggleAll = () => { const all = visibleEntries.every(e => e.selected); const ids = new Set(visibleEntries.map(e => e.emp.id)); setEntries(es => es.map(e => ids.has(e.emp.id) ? { ...e, selected: !all } : e)); };
 
   const runPayroll = () => {
-    const ids = new Set(entries.filter(e => e.selected).map(e => e.emp.id));
-    if (!ids.size) return;
+    const ids = entries.filter(e => e.selected).map(e => e.emp.id);
+    if (!ids.length) return;
+    const idSet = new Set(ids);
     setRunStatus("running");
-    setEntries(es => es.map(e => ids.has(e.emp.id) ? { ...e, status: "processing" } : e));
-    setTimeout(() => { setEntries(es => es.map(e => ids.has(e.emp.id) ? { ...e, status: "paid" } : e)); setRunStatus("done"); }, 1800);
+    setError("");
+    setEntries(es => es.map(e => idSet.has(e.emp.id) ? { ...e, status: "processing" } : e));
+    api.runPayroll(month, ids)
+      .then(() => {
+        setEntries(es => es.map(e => idSet.has(e.emp.id) ? { ...e, status: "paid" } : e));
+        setRunStatus("done");
+      })
+      .catch(err => {
+        setError(err.message || "Failed to run payroll");
+        setEntries(es => es.map(e => idSet.has(e.emp.id) ? { ...e, status: "pending" } : e));
+        setRunStatus("idle");
+      });
   };
 
-  const departments = ["All", ...Array.from(new Set(MOCK_EMPLOYEES.map(e => e.department)))];
+  const departments = ["All", ...Array.from(new Set(employees.map(e => e.department)))];
   const visibleEntries = entries.filter(e => deptFilter === "All" || e.emp.department === deptFilter);
   const selected = entries.filter(e => e.selected);
   const totalGross = selected.reduce((s, e) => s + e.grossSalary, 0);
@@ -507,12 +573,14 @@ export default function PayrollPage() {
         ))}
       </div>
 
+      {error && <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 10, padding: "10px 14px", color: "#f87171", fontSize: 12, marginBottom: 16 }}>⚠ {error}</div>}
+
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
         <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={{ ...inp, fontSize: 12 }}>
           {departments.map(d => <option key={d}>{d}</option>)}
         </select>
-        <div style={{ fontSize: 12, color: "#475569", marginLeft: "auto" }}>{visibleEntries.length} employees · {monthLabel}</div>
+        <div style={{ fontSize: 12, color: "#475569", marginLeft: "auto" }}>{loading ? "Loading…" : `${visibleEntries.length} employees · ${monthLabel}`}</div>
       </div>
 
       {/* Table */}
@@ -523,7 +591,11 @@ export default function PayrollPage() {
           ))}
         </div>
 
-        {visibleEntries.map((entry, idx) => (
+        {loading ? (
+          <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>Loading payroll…</div>
+        ) : visibleEntries.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>No employees found.</div>
+        ) : visibleEntries.map((entry, idx) => (
           <div key={entry.emp.id} style={{ display: "grid", gridTemplateColumns: "36px 200px 100px 80px 80px 100px 100px 120px 90px 100px", padding: "10px 16px", borderBottom: idx < visibleEntries.length - 1 ? "1px solid #0f1c30" : "none", background: entry.selected ? "rgba(45,212,191,0.03)" : "transparent", alignItems: "center" }}>
             <input type="checkbox" checked={entry.selected} onChange={() => toggleSelect(entry.emp.id)} style={{ cursor: "pointer", accentColor: "#2dd4bf" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -622,8 +694,8 @@ export default function PayrollPage() {
       )}
 
       {showTax && <TaxCalculator onClose={() => setShowTax(false)} />}
-      {showLoans && <LoanModal loans={loans} setLoans={setLoans} onClose={() => setShowLoans(false)} />}
-      {showBonuses && <BonusModal bonuses={bonuses} setBonuses={setBonuses} month={month} onClose={() => setShowBonuses(false)} />}
+      {showLoans && <LoanModal loans={loans} employees={employees} onCreated={loadLoans} onClose={() => setShowLoans(false)} />}
+      {showBonuses && <BonusModal bonuses={bonuses} employees={employees} month={month} onCreated={() => loadBonuses(month)} onClose={() => setShowBonuses(false)} />}
     </div>
   );
 }

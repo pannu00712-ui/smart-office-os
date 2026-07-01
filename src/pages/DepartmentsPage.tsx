@@ -1,46 +1,78 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
 
 const COLORS = ['#2dd4bf','#818cf8','#fb7185','#fbbf24','#34d399','#60a5fa','#f97316','#a78bfa','#e879f9','#4ade80']
-
-const INITIAL_DEPTS = [
-  { id: 1, name: 'Engineering', head: 'Zara Ahmed', employees: 2, budget: 500000, location: 'Floor 3', description: 'Software development team', color: '#2dd4bf', active: true },
-  { id: 2, name: 'HR', head: 'Hassan Malik', employees: 1, budget: 200000, location: 'Floor 1', description: 'Human resources management', color: '#818cf8', active: true },
-  { id: 3, name: 'Finance', head: 'Ayesha Khan', employees: 1, budget: 300000, location: 'Floor 2', description: 'Financial operations', color: '#fb7185', active: true },
-  { id: 4, name: 'Marketing', head: 'Sana Baig', employees: 1, budget: 250000, location: 'Floor 1', description: 'Marketing and branding', color: '#fbbf24', active: true },
-  { id: 5, name: 'Operations', head: 'Bilal Siddiqui', employees: 1, budget: 180000, location: 'Ground Floor', description: 'Day to day operations', color: '#34d399', active: false },
-]
 
 const empty = () => ({ name: '', head: '', budget: '', location: '', description: '', color: COLORS[0], active: true })
 
 export default function DepartmentsPage() {
-  const [depts, setDepts] = useState(INITIAL_DEPTS)
+  const [depts, setDepts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [modal, setModal] = useState(null) // null | { type: 'add'|'edit'|'delete', dept?: any }
   const [form, setForm] = useState(empty())
   const [search, setSearch] = useState('')
   const [confirmDel, setConfirmDel] = useState(null)
 
-  const filtered = depts.filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.head.toLowerCase().includes(search.toLowerCase()))
+  const load = () => {
+    setLoading(true)
+    setError('')
+    api.getDepartments()
+      .then(res => setDepts(Array.isArray(res) ? res : res?.data || []))
+      .catch(err => setError(err.message || 'Failed to load departments'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [])
+
+  const filtered = depts.filter(d => (d.name || '').toLowerCase().includes(search.toLowerCase()) || (d.head || '').toLowerCase().includes(search.toLowerCase()))
 
   const openAdd = () => { setForm(empty()); setModal({ type: 'add' }) }
   const openEdit = (d) => { setForm({ ...d, budget: String(d.budget) }); setModal({ type: 'edit', dept: d }) }
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return
-    if (modal.type === 'add') {
-      setDepts(p => [...p, { ...form, id: Date.now(), budget: Number(form.budget) || 0, employees: 0 }])
-    } else {
-      setDepts(p => p.map(d => d.id === modal.dept.id ? { ...d, ...form, budget: Number(form.budget) || 0 } : d))
+    setSaving(true)
+    setError('')
+    try {
+      const payload = { ...form, budget: Number(form.budget) || 0 }
+      if (modal.type === 'add') {
+        await api.createDepartment(payload)
+      } else {
+        await api.updateDepartment(modal.dept.id, payload)
+      }
+      setModal(null)
+      load()
+    } catch (err) {
+      setError(err.message || 'Failed to save department')
+    } finally {
+      setSaving(false)
     }
-    setModal(null)
   }
 
-  const deleteDept = (id) => {
-    setDepts(p => p.filter(d => d.id !== id))
-    setConfirmDel(null)
+  const deleteDept = async (id) => {
+    setError('')
+    try {
+      await api.deleteDepartment(id)
+      setConfirmDel(null)
+      load()
+    } catch (err) {
+      setError(err.message || 'Failed to delete department')
+      setConfirmDel(null)
+    }
   }
 
-  const toggleActive = (id) => setDepts(p => p.map(d => d.id === id ? { ...d, active: !d.active } : d))
+  const toggleActive = async (d) => {
+    setError('')
+    try {
+      await api.updateDepartment(d.id, { ...d, active: !d.active })
+      load()
+    } catch (err) {
+      setError(err.message || 'Failed to update department')
+    }
+  }
 
   const inp = { background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 10, padding: '9px 14px', color: '#f1f5f9', fontSize: 13, outline: 'none', width: '100%', fontFamily: 'inherit' }
   const lbl = { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }
@@ -76,7 +108,13 @@ export default function DepartmentsPage() {
       {/* Search */}
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search departments..." style={{ ...inp, width: 300, marginBottom: 20 }} />
 
-      {/* Grid */}
+      {error && <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '10px 14px', color: '#f87171', fontSize: 12, marginBottom: 16 }}>⚠ {error}</div>}
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>Loading departments…</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>No departments found.</div>
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
         {filtered.map(d => (
           <div key={d.id} style={{ background: '#131c2e', border: `1px solid ${d.active ? '#1e2d45' : '#0f1c30'}`, borderRadius: 16, overflow: 'hidden', opacity: d.active ? 1 : 0.6 }}>
@@ -106,13 +144,14 @@ export default function DepartmentsPage() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => openEdit(d)} style={{ flex: 1, padding: '7px', background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.3)', borderRadius: 8, color: '#818cf8', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Edit</button>
-                <button onClick={() => toggleActive(d.id)} style={{ flex: 1, padding: '7px', background: d.active ? 'rgba(251,191,36,0.1)' : 'rgba(52,211,153,0.1)', border: `1px solid ${d.active ? 'rgba(251,191,36,0.3)' : 'rgba(52,211,153,0.3)'}`, borderRadius: 8, color: d.active ? '#fbbf24' : '#34d399', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{d.active ? 'Deactivate' : 'Activate'}</button>
+                <button onClick={() => toggleActive(d)} style={{ flex: 1, padding: '7px', background: d.active ? 'rgba(251,191,36,0.1)' : 'rgba(52,211,153,0.1)', border: `1px solid ${d.active ? 'rgba(251,191,36,0.3)' : 'rgba(52,211,153,0.3)'}`, borderRadius: 8, color: d.active ? '#fbbf24' : '#34d399', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{d.active ? 'Deactivate' : 'Activate'}</button>
                 <button onClick={() => setConfirmDel(d)} style={{ padding: '7px 12px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>🗑</button>
               </div>
             </div>
           </div>
         ))}
       </div>
+      )}
 
       {/* Add/Edit Modal */}
       {modal && modal.type !== 'delete' && (
@@ -136,7 +175,7 @@ export default function DepartmentsPage() {
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setModal(null)} style={{ flex: 1, padding: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e2d45', borderRadius: 10, color: '#64748b', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-              <button onClick={save} style={{ flex: 2, padding: 10, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 10, color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>Save Department</button>
+              <button onClick={save} disabled={saving} style={{ flex: 2, padding: 10, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 10, color: '#0f172a', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving…' : 'Save Department'}</button>
             </div>
           </div>
         </div>

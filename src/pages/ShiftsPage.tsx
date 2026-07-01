@@ -1,12 +1,6 @@
 // @ts-nocheck
-import { useState } from 'react'
-
-const INITIAL_SHIFTS = [
-  { id: 1, name: 'Morning (9–6)', startTime: '09:00', endTime: '18:00', checkInBuffer: 10, lateAfter: 15, earlyLeaveBuffer: 10, breakDuration: 60, breakStart: '13:00', breakEnd: '14:00', overtimeAfter: 30, overtimeRate: 1.5, halfDayHours: 4, gracePeriod: 5, active: true, color: '#2dd4bf' },
-  { id: 2, name: 'Evening (2–11)', startTime: '14:00', endTime: '23:00', checkInBuffer: 10, lateAfter: 15, earlyLeaveBuffer: 10, breakDuration: 60, breakStart: '18:00', breakEnd: '19:00', overtimeAfter: 30, overtimeRate: 1.5, halfDayHours: 4, gracePeriod: 5, active: true, color: '#818cf8' },
-  { id: 3, name: 'Night (10–7)', startTime: '22:00', endTime: '07:00', checkInBuffer: 10, lateAfter: 20, earlyLeaveBuffer: 10, breakDuration: 60, breakStart: '02:00', breakEnd: '03:00', overtimeAfter: 30, overtimeRate: 2.0, halfDayHours: 4, gracePeriod: 5, active: true, color: '#fb7185' },
-  { id: 4, name: 'Flexi', startTime: '08:00', endTime: '20:00', checkInBuffer: 60, lateAfter: 60, earlyLeaveBuffer: 60, breakDuration: 60, breakStart: '12:00', breakEnd: '13:00', overtimeAfter: 60, overtimeRate: 1.25, halfDayHours: 4, gracePeriod: 30, active: true, color: '#fbbf24' },
-]
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
 
 const emptyShift = () => ({
   name: '', startTime: '09:00', endTime: '18:00',
@@ -19,20 +13,66 @@ const emptyShift = () => ({
 const COLORS = ['#2dd4bf','#818cf8','#fb7185','#fbbf24','#34d399','#60a5fa','#f97316','#a78bfa']
 
 export default function ShiftsPage() {
-  const [shifts, setShifts] = useState(INITIAL_SHIFTS)
+  const [shifts, setShifts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState(emptyShift())
+  const [confirmDel, setConfirmDel] = useState(null)
+
+  const load = () => {
+    setLoading(true)
+    setError('')
+    api.getShifts()
+      .then(res => setShifts(Array.isArray(res) ? res : res?.data || []))
+      .catch(err => setError(err.message || 'Failed to load shifts'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return
-    if (modal?.type === 'edit') {
-      setShifts(p => p.map(s => s.id === modal.shift.id ? { ...s, ...form } : s))
-    } else {
-      setShifts(p => [...p, { ...form, id: Date.now() }])
+    setSaving(true)
+    setError('')
+    try {
+      if (modal?.type === 'edit') {
+        await api.updateShift(modal.shift.id, form)
+      } else {
+        await api.createShift(form)
+      }
+      setModal(null)
+      load()
+    } catch (err) {
+      setError(err.message || 'Failed to save shift')
+    } finally {
+      setSaving(false)
     }
-    setModal(null)
+  }
+
+  const deleteShift = async (id) => {
+    setError('')
+    try {
+      await api.deleteShift(id)
+      setConfirmDel(null)
+      load()
+    } catch (err) {
+      setError(err.message || 'Failed to delete shift')
+      setConfirmDel(null)
+    }
+  }
+
+  const toggleActive = async (s) => {
+    setError('')
+    try {
+      await api.updateShift(s.id, { ...s, active: !s.active })
+      load()
+    } catch (err) {
+      setError(err.message || 'Failed to update shift')
+    }
   }
 
   const inp = { background: '#0d1526', border: '1px solid #1e2d45', borderRadius: 8, padding: '8px 12px', color: '#f1f5f9', fontSize: 13, outline: 'none', width: '100%', fontFamily: 'inherit' }
@@ -58,7 +98,13 @@ export default function ShiftsPage() {
         </button>
       </div>
 
-      {/* Shift Cards */}
+      {error && <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '10px 14px', color: '#f87171', fontSize: 12, marginBottom: 16 }}>⚠ {error}</div>}
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>Loading shifts…</div>
+      ) : shifts.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>No shifts found.</div>
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
         {shifts.map(s => (
           <div key={s.id} style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, overflow: 'hidden' }}>
@@ -98,11 +144,11 @@ export default function ShiftsPage() {
                   style={{ flex: 1, padding: '7px', background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.3)', borderRadius: 8, color: '#818cf8', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
                   Edit
                 </button>
-                <button onClick={() => setShifts(p => p.map(x => x.id === s.id ? { ...x, active: !x.active } : x))}
+                <button onClick={() => toggleActive(s)}
                   style={{ flex: 1, padding: '7px', background: s.active ? 'rgba(251,191,36,0.08)' : 'rgba(52,211,153,0.08)', border: `1px solid ${s.active ? 'rgba(251,191,36,0.3)' : 'rgba(52,211,153,0.3)'}`, borderRadius: 8, color: s.active ? '#fbbf24' : '#34d399', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
                   {s.active ? 'Deactivate' : 'Activate'}
                 </button>
-                <button onClick={() => setShifts(p => p.filter(x => x.id !== s.id))}
+                <button onClick={() => setConfirmDel(s)}
                   style={{ padding: '7px 12px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', fontSize: 12 }}>
                   🗑
                 </button>
@@ -111,6 +157,7 @@ export default function ShiftsPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Modal */}
       {modal && (
@@ -171,7 +218,22 @@ export default function ShiftsPage() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
               <button onClick={() => setModal(null)} style={{ flex: 1, padding: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e2d45', borderRadius: 10, color: '#64748b', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
-              <button onClick={save} style={{ flex: 2, padding: 10, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 10, color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}>Save Shift</button>
+              <button onClick={save} disabled={saving} style={{ flex: 2, padding: 10, background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 10, color: '#0f172a', fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving…' : 'Save Shift'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm */}
+      {confirmDel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#0d1526', border: '1px solid #1e2d45', borderRadius: 16, padding: 28, width: 380, textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>Delete "{confirmDel.name}"?</div>
+            <div style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>This action cannot be undone.</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmDel(null)} style={{ flex: 1, padding: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid #1e2d45', borderRadius: 10, color: '#94a3b8', cursor: 'pointer', fontWeight: 700 }}>Cancel</button>
+              <button onClick={() => deleteShift(confirmDel.id)} style={{ flex: 1, padding: 10, background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 10, color: '#f87171', cursor: 'pointer', fontWeight: 800 }}>Delete</button>
             </div>
           </div>
         </div>

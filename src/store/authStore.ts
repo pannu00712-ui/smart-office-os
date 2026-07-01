@@ -1,55 +1,44 @@
+// @ts-nocheck
 import { create } from 'zustand'
-import { authApi } from '../lib/api'
-
-interface User {
-  id: string
-  email: string
-  role: string
-  org_id: string
-}
+import { api } from '../lib/api'
 
 interface AuthState {
-  user: User | null
-  token: string | null
-  isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
-  fetchMe: () => Promise<void>
+  user: any; token: string | null; isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  fetchMe: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: localStorage.getItem('access_token'),
+  token: (() => { try { return localStorage.getItem('access_token'); } catch { return null; } })(),
   isLoading: false,
 
   login: async (email, password) => {
-    set({ isLoading: true })
+    set({ isLoading: true });
     try {
-      const res = await authApi.login(email, password)
-      const { access_token, user } = res.data
-      localStorage.setItem('access_token', access_token)
-      localStorage.setItem('demo_email', email)
-      set({ token: access_token, user, isLoading: false })
+      const data = await api.login(email, password);
+      try { localStorage.setItem('access_token', data.token); } catch {}
+      set({ token: data.token, user: data.user, isLoading: false });
     } catch (err) {
-      set({ isLoading: false })
-      throw err
+      set({ isLoading: false });
+      throw err;
     }
   },
 
   logout: () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('demo_email')
-    set({ user: null, token: null })
-    window.location.hash = '/login'
+    try { localStorage.removeItem('access_token'); } catch {}
+    set({ user: null, token: null });
+    window.location.hash = '/login';
   },
 
   fetchMe: async () => {
     try {
-      const res = await authApi.me()
-      set({ user: res.data })
+      const data = await api.me();
+      set({ user: data.user });
     } catch {
-      localStorage.removeItem('access_token')
-      set({ user: null, token: null })
+      try { localStorage.removeItem('access_token'); } catch {}
+      set({ user: null, token: null });
     }
   },
-}))
+}));

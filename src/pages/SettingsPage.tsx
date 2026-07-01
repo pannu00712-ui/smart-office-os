@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState } from 'react'
 import { useApp, ROLE_PERMISSIONS } from '../store/appContext'
+import { api } from '../lib/api'
 
 const USERS = [
   { id: 1, email: 'admin@soos.io', name: 'Admin', role: 'super_admin' },
@@ -24,6 +25,29 @@ export default function SettingsPage() {
   const [restoring, setRestoring] = useState(null)
   const [users, setUsers] = useState(USERS)
   const [msg, setMsg] = useState('')
+  const [serverUrl, setServerUrlInput] = useState(api.getServerUrl())
+  const [testing, setTesting] = useState(false)
+  const [connStatus, setConnStatus] = useState(null) // null | 'ok' | 'fail'
+
+  const saveServerUrl = () => {
+    api.setServerUrl(serverUrl.trim().replace(/\/$/, ''))
+    setConnStatus(null)
+    setMsg('Server address saved. Restart the app for it to take full effect.')
+    setTimeout(() => setMsg(''), 4000)
+  }
+
+  const testConnection = async () => {
+    setTesting(true)
+    setConnStatus(null)
+    try {
+      await api.ping()
+      setConnStatus('ok')
+    } catch {
+      setConnStatus('fail')
+    } finally {
+      setTesting(false)
+    }
+  }
 
   const doBackup = () => {
     setBacking(true)
@@ -50,6 +74,7 @@ export default function SettingsPage() {
 
   const TABS = [
     { id: 'general', label: '⚙️ General' },
+    { id: 'server', label: '🖥️ Server' },
     { id: 'permissions', label: '🔐 Permissions' },
     { id: 'approvals', label: '✅ Approvals', badge: pendingApprovals.filter(p => p.status === 'pending').length },
     { id: 'backup', label: '💾 Backup & Restore' },
@@ -105,6 +130,43 @@ export default function SettingsPage() {
               ))}
             </div>
             <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 10 }}>📌 Sidebar labels will update immediately. Full RTL layout support is in progress.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Server Tab */}
+      {tab === 'server' && (
+        <div style={card}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>🖥️ Backend Server Address</div>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 18 }}>
+            Is PC ko us server PC ka LAN address dein jahan backend chal raha hai (jaise <code>http://192.168.1.100:4000/api</code>).
+            Sirf ek dedicated PC pe backend 24/7 chalta hai — baqi sab PCs sirf is address se connect karte hain.
+          </div>
+
+          <label style={lbl}>Server URL</label>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <input
+              type="text"
+              value={serverUrl}
+              onChange={e => setServerUrlInput(e.target.value)}
+              placeholder="http://192.168.1.100:4000/api"
+              style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: `1px solid ${colors.border}`, background: colors.panelDark, color: colors.text, fontSize: 13, outline: 'none' }}
+            />
+            <button onClick={saveServerUrl} style={{ padding: '10px 20px', background: 'linear-gradient(135deg,#2dd4bf,#0ea5e9)', border: 'none', borderRadius: 10, color: '#0f172a', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+              Save
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={testConnection} disabled={testing} style={{ padding: '9px 18px', background: colors.panelDark, border: `1px solid ${colors.border}`, borderRadius: 10, color: colors.text, fontWeight: 700, fontSize: 12, cursor: testing ? 'not-allowed' : 'pointer' }}>
+              {testing ? '⏳ Testing...' : '🔌 Test Connection'}
+            </button>
+            {connStatus === 'ok' && <span style={{ color: '#34d399', fontSize: 12, fontWeight: 700 }}>✓ Connected — server is reachable</span>}
+            {connStatus === 'fail' && <span style={{ color: '#f87171', fontSize: 12, fontWeight: 700 }}>✗ Could not reach server at this address</span>}
+          </div>
+
+          <div style={{ fontSize: 11, color: colors.textFaint, marginTop: 16 }}>
+            📌 Current: <strong>{api.getServerUrl()}</strong>. Changing this only affects this PC/installation.
           </div>
         </div>
       )}

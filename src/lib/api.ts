@@ -1,75 +1,137 @@
-// ─── DEMO MODE — No backend required ──────────────────────────
-export default {} as any
+// @ts-nocheck
+// src/lib/api.ts — change BASE_URL to your server PC's LAN IP
+// e.g. http://192.168.1.100:4000/api
 
-const delay = (ms = 200) => new Promise(r => setTimeout(r, ms))
-
-const DEMO_USERS: Record<string, any> = {
-  'admin@soos.io': { password: 'admin123', role: 'super_admin' },
-  'admin@demo.com': { password: 'Admin@1234', role: 'super_admin' },
+function getStoredUrl() {
+  try { return localStorage.getItem('soos_api_url') || 'http://localhost:4000/api'; } catch { return 'http://localhost:4000/api'; }
 }
 
-export const authApi = {
-  login: async (email: string, password: string) => {
-    await delay()
-    const u = DEMO_USERS[email]
-    if (!u || u.password !== password) throw { response: { status: 401, data: { detail: 'Invalid credentials' } } }
-    const token = 'demo_token_' + Date.now()
-    return { data: { access_token: token, user: { id: '1', email, role: u.role, org_id: 'demo' } } }
-  },
-  me: async () => {
-    await delay()
-    const email = localStorage.getItem('demo_email') || 'admin@soos.io'
-    return { data: { id: '1', email, role: 'super_admin', org_id: 'demo' } }
-  },
+function getToken() {
+  try { return localStorage.getItem('access_token') || ''; } catch { return ''; }
 }
 
-export const employeeApi = {
-  list:   async (..._: any[]) => { await delay(); return { data: [] } },
-  get:    async (..._: any[]) => { await delay(); return { data: null } },
-  create: async (data: any)   => { await delay(); return { data: { ...data, id: String(Date.now()) } } },
-  update: async (_: any, data: any) => { await delay(); return { data } },
-  delete: async (..._: any[]) => { await delay(); return { data: {} } },
-  enroll: async (..._: any[]) => { await delay(); return { data: { success: true } } },
-  enrollmentStatus: async (..._: any[]) => { await delay(); return { data: { enrolled: false, photos: 0 } } },
+// Builds a query string, dropping undefined/null/empty values
+// (so e.g. `{ severity: filter || undefined }` doesn't turn into "?severity=undefined").
+function qs(params) {
+  if (!params) return '';
+  const clean = Object.fromEntries(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  );
+  const s = new URLSearchParams(clean).toString();
+  return s ? `?${s}` : '';
 }
 
-const today = new Date().toISOString().split('T')[0]
-
-export const attendanceApi = {
-  list:    async (..._: any[]) => { await delay(); return { data: [] } },
-  summary: async (..._: any[]) => { await delay(); return { data: { total_employees: 6, present: 4, absent: 1, late: 1, on_break: 0, not_yet_arrived: 0 } } },
-  live:    async (..._: any[]) => { await delay(); return { data: { presence_list: [] } } },
-  today:   async (..._: any[]) => { await delay(); return { data: null } },
-  history: async (..._: any[]) => { await delay(); return { data: [] } },
-  override: async (..._: any[]) => { await delay(); return { data: {} } },
-  timeline: async (..._: any[]) => { await delay(); return { data: [] } },
+async function requestRaw(method, path, body) {
+  const BASE_URL = getStoredUrl();
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({ error: res.statusText })); throw new Error(e.error || 'Failed'); }
+  return res;
 }
+
+async function request(method, path, body) {
+  const res = await requestRaw(method, path, body);
+  return res.json();
+}
+
+// For CSV/file downloads — returns a Blob instead of parsing JSON.
+async function requestBlob(method, path, body) {
+  const res = await requestRaw(method, path, body);
+  return res.blob();
+}
+
+export const api = {
+  login: (email, password) => request('POST', '/auth/login', { email, password }),
+  me: () => request('GET', '/auth/me'),
+  createUser: (data) => request('POST', '/auth/users', data),
+  getEmployees: () => request('GET', '/employees'),
+  createEmployee: (data) => request('POST', '/employees', data),
+  updateEmployee: (id, data) => request('PUT', `/employees/${id}`, data),
+  deleteEmployee: (id) => request('DELETE', `/employees/${id}`),
+  getAttendance: (params) => request('GET', `/attendance${qs(params)}`),
+  checkIn: (data) => request('POST', '/attendance/checkin', data),
+  checkOut: (data) => request('POST', '/attendance/checkout', data),
+  overrideAttendance: (id, data) => request('PUT', `/attendance/${id}/override`, data),
+  getCameras: () => request('GET', '/cameras'),
+  discoverCameras: () => request('GET', '/cameras/discover'),
+  addCamera: (data) => request('POST', '/cameras', data),
+  updateCamera: (id, data) => request('PUT', `/cameras/${id}`, data),
+  deleteCamera: (id) => request('DELETE', `/cameras/${id}`),
+  getCameraLogs: (id) => request('GET', `/cameras/${id}/logs`),
+  getDepartments: () => request('GET', '/departments'),
+  createDepartment: (data) => request('POST', '/departments', data),
+  updateDepartment: (id, data) => request('PUT', `/departments/${id}`, data),
+  deleteDepartment: (id) => request('DELETE', `/departments/${id}`),
+  getShifts: () => request('GET', '/shifts'),
+  createShift: (data) => request('POST', '/shifts', data),
+  updateShift: (id, data) => request('PUT', `/shifts/${id}`, data),
+  deleteShift: (id) => request('DELETE', `/shifts/${id}`),
+  getPayroll: (month) => request('GET', `/payroll/${month}`),
+  runPayroll: (month, ids) => request('POST', `/payroll/run/${month}`, { employee_ids: ids }),
+  getLoans: () => request('GET', '/payroll/loans/all'),
+  createLoan: (data) => request('POST', '/payroll/loans', data),
+  getBonuses: (month) => request('GET', `/payroll/bonuses/${month}`),
+  createBonus: (data) => request('POST', '/payroll/bonuses', data),
+  updateBonusStatus: (id, status) => request('PUT', `/payroll/bonuses/${id}/status`, { status }),
+  getLeaves: () => request('GET', '/leaves'),
+  applyLeave: (data) => request('POST', '/leaves', data),
+  approveLeave: (id, approve) => request('PUT', `/leaves/${id}/approve`, { approve }),
+  getLogs: (params) => request('GET', `/logs${qs(params)}`),
+  getNotifications: () => request('GET', '/notifications'),
+  markRead: (id) => request('PUT', `/notifications/${id}/read`, {}),
+  markAllRead: () => request('PUT', '/notifications/read-all', {}),
+  getBackups: () => request('GET', '/backup'),
+  runBackup: () => request('POST', '/backup/run', {}),
+  restoreBackup: (id) => request('POST', `/backup/restore/${id}`, {}),
+  ping: () => request('GET', '/../ping'),
+  setServerUrl: (url) => { try { localStorage.setItem('soos_api_url', url); } catch {} },
+  getServerUrl: () => { try { return localStorage.getItem('soos_api_url') || 'http://localhost:4000/api'; } catch { return 'http://localhost:4000/api'; } },
+};
+
+// ─── Resource-scoped API clients ──────────────────────────────────────────────
+// These wrap `api` above but return `{ data }` (matching how the pages consume
+// them, e.g. `const r = await cameraApi.list(); setCameras(r.data)`).
 
 export const cameraApi = {
-  list:   async (..._: any[]) => { await delay(); return { data: [] } },
-  create: async (data: any)   => { await delay(); return { data: { ...data, id: String(Date.now()) } } },
-  update: async (..._: any[]) => { await delay(); return { data: {} } },
-  delete: async (..._: any[]) => { await delay(); return { data: {} } },
-  status: async (..._: any[]) => { await delay(); return { data: { online: false } } },
-}
+  list: async () => ({ data: await request('GET', '/cameras') }),
+  discover: async () => ({ data: await request('GET', '/cameras/discover') }),
+  create: (data) => request('POST', '/cameras', data),
+  update: (id, data) => request('PUT', `/cameras/${id}`, data),
+  delete: (id) => request('DELETE', `/cameras/${id}`),
+  logs: async (id) => ({ data: await request('GET', `/cameras/${id}/logs`) }),
+};
 
-const ALERTS = [
-  { id: '1', type: 'late_arrival', message: 'Hassan Malik arrived 15 minutes late', severity: 'medium', acknowledged: false, is_read: false, created_at: new Date().toISOString() },
-  { id: '2', type: 'absent', message: 'Ayesha Khan is absent today', severity: 'high', acknowledged: false, is_read: false, created_at: new Date().toISOString() },
-  { id: '3', type: 'system', message: 'System backup completed successfully', severity: 'low', acknowledged: true, is_read: true, created_at: new Date().toISOString() },
-]
+export const attendanceApi = {
+  list: async (params) => ({ data: await request('GET', `/attendance${qs(params)}`) }),
+  checkin: (data) => request('POST', '/attendance/checkin', data),
+  checkout: (data) => request('POST', '/attendance/checkout', data),
+  override: (id, data) => request('PUT', `/attendance/${id}/override`, data),
+};
 
+// NOTE: the backend (as of the last build) does not yet expose an /alerts
+// route — only /notifications. This client is wired up and ready, but the
+// backend route needs to be added before this will return real data.
 export const alertApi = {
-  list:        async (..._: any[]) => { await delay(); return { data: ALERTS } },
-  unreadCount: async (..._: any[]) => { await delay(); return { data: { unread_count: ALERTS.filter(a => !a.acknowledged).length } } },
-  acknowledge: async (id: string) => { await delay(); const a = ALERTS.find(x => x.id === id); if (a) { a.acknowledged = true; a.is_read = true; } return { data: {} } },
-  resolve:     async (id: string) => { await delay(); const i = ALERTS.findIndex(x => x.id === id); if (i >= 0) ALERTS.splice(i, 1); return { data: {} } },
-  markAllRead: async (..._: any[]) => { await delay(); ALERTS.forEach(a => { a.acknowledged = true; a.is_read = true; }); return { data: {} } },
-}
+  list: async (params) => ({ data: await request('GET', `/alerts${qs(params)}`) }),
+  acknowledge: (id) => request('PUT', `/alerts/${id}/acknowledge`, {}),
+  markAllRead: () => request('PUT', '/alerts/read-all', {}),
+};
 
+// NOTE: the backend does not yet expose /reports/daily, /reports/monthly, or
+// /reports/export either — same caveat as alertApi above.
 export const reportApi = {
-  daily:     async (..._: any[]) => { await delay(); return { data: { records: [], summary: { present: 4, absent: 1, late: 1 } } } },
-  monthly:   async (..._: any[]) => { await delay(); return { data: { records: [], summary: {} } } },
-  breaks:    async (..._: any[]) => { await delay(); return { data: [] } },
-  exportCsv: async (..._: any[]) => { await delay(); return { data: new Blob(['Employee,Date,Status\nDemo,'+today+',present']) } },
+  daily: async (params) => ({ data: await request('GET', `/reports/daily${qs(params)}`) }),
+  monthly: async (params) => ({ data: await request('GET', `/reports/monthly${qs(params)}`) }),
+  exportCsv: async (params) => ({ data: await requestBlob('GET', `/reports/export${qs(params)}`) }),
+};
+
+export function connectWebSocket(onMessage) {
+  const wsUrl = getStoredUrl().replace('http', 'ws').replace('/api', '');
+  const ws = new WebSocket(wsUrl);
+  ws.onmessage = (e) => { try { onMessage(JSON.parse(e.data)); } catch {} };
+  ws.onclose = () => setTimeout(() => connectWebSocket(onMessage), 3000);
+  return ws;
 }

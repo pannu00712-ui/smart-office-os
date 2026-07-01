@@ -1,18 +1,6 @@
 // @ts-nocheck
-import { useState, useEffect } from 'react'
-
-const INITIAL_LOGS = [
-  { id: 1, ts: new Date(Date.now() - 1000*60*2).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'EMPLOYEE_UPDATED', target: 'EMP-001 Zara Ahmed', detail: 'Salary updated from PKR 110,000 to PKR 120,000', ip: '192.168.1.10', module: 'Employees', severity: 'medium' },
-  { id: 2, ts: new Date(Date.now() - 1000*60*8).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'PAYROLL_RUN', target: 'June 2025 - 5 employees', detail: 'Payroll run executed. Total net: PKR 717,900', ip: '192.168.1.10', module: 'Payroll', severity: 'high' },
-  { id: 3, ts: new Date(Date.now() - 1000*60*15).toISOString(), user: 'hr@soos.io', role: 'hr_manager', action: 'LEAVE_APPROVED', target: 'EMP-003 Ayesha Khan', detail: 'Annual leave approved for 3 days (Jun 20–22)', ip: '192.168.1.11', module: 'Employee Portal', severity: 'low' },
-  { id: 4, ts: new Date(Date.now() - 1000*60*30).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'CAMERA_ADDED', target: 'CAM-003 Entrance Gate', detail: 'New ONVIF camera added with IP 192.168.1.103', ip: '192.168.1.10', module: 'Cameras', severity: 'medium' },
-  { id: 5, ts: new Date(Date.now() - 1000*60*45).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'DEPARTMENT_CREATED', target: 'Sales Department', detail: 'New department created with budget PKR 300,000', ip: '192.168.1.10', module: 'Departments', severity: 'medium' },
-  { id: 6, ts: new Date(Date.now() - 1000*60*60).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'LOGIN', target: 'admin@soos.io', detail: 'Admin logged in from Windows 11 - Chrome', ip: '192.168.1.10', module: 'Auth', severity: 'low' },
-  { id: 7, ts: new Date(Date.now() - 1000*60*90).toISOString(), user: 'hr@soos.io', role: 'hr_manager', action: 'SHIFT_MODIFIED', target: 'Morning (9-6)', detail: 'Late threshold changed from 10 min to 15 min', ip: '192.168.1.11', module: 'Shifts', severity: 'medium' },
-  { id: 8, ts: new Date(Date.now() - 1000*60*120).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'EMPLOYEE_ADDED', target: 'EMP-006 Bilal Siddiqui', detail: 'New employee added to Operations department', ip: '192.168.1.10', module: 'Employees', severity: 'medium' },
-  { id: 9, ts: new Date(Date.now() - 1000*60*180).toISOString(), user: 'system', role: 'system', action: 'AUTO_SAVE', target: 'All Modules', detail: 'Automatic data save triggered (5s interval)', ip: 'localhost', module: 'System', severity: 'info' },
-  { id: 10, ts: new Date(Date.now() - 1000*60*240).toISOString(), user: 'admin@soos.io', role: 'super_admin', action: 'CAMERA_OFFLINE', target: 'CAM-002 Parking', detail: 'Camera went offline. Buffering logs for sync.', ip: 'system', module: 'Cameras', severity: 'high' },
-]
+import { useState, useEffect, useCallback } from 'react'
+import { api } from '../lib/api'
 
 const SEV_MAP = {
   info:   { bg: 'rgba(148,163,184,0.12)', color: '#94a3b8', label: 'Info' },
@@ -27,37 +15,34 @@ const MOD_COLORS = {
 }
 
 export default function LogsPage() {
-  const [logs, setLogs] = useState(INITIAL_LOGS)
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [filter, setFilter] = useState({ module: 'All', severity: 'All', search: '' })
 
-  // Add real-time log entries
+  const load = useCallback(() => {
+    setError('')
+    api.getLogs({
+      module: filter.module !== 'All' ? filter.module : undefined,
+      severity: filter.severity !== 'All' ? filter.severity : undefined,
+      search: filter.search || undefined,
+    })
+      .then(res => setLogs(Array.isArray(res) ? res : res?.data || []))
+      .catch(err => setError(err.message || 'Failed to load logs'))
+      .finally(() => setLoading(false))
+  }, [filter.module, filter.severity, filter.search])
+
+  // Initial load + refetch whenever filters change
+  useEffect(() => { setLoading(true); load() }, [load])
+
+  // Poll for new entries every 30s (logs are written server-side by other actions)
   useEffect(() => {
-    const t = setInterval(() => {
-      setLogs(p => [{
-        id: Date.now(),
-        ts: new Date().toISOString(),
-        user: 'system',
-        role: 'system',
-        action: 'AUTO_SAVE',
-        target: 'All Modules',
-        detail: 'Automatic data save completed successfully',
-        ip: 'localhost',
-        module: 'System',
-        severity: 'info',
-      }, ...p])
-    }, 30000) // every 30s add auto-save log
+    const t = setInterval(load, 30000)
     return () => clearInterval(t)
-  }, [])
+  }, [load])
 
   const modules = ['All', ...Array.from(new Set(logs.map(l => l.module)))]
   const severities = ['All', 'info', 'low', 'medium', 'high']
-
-  const filtered = logs.filter(l => {
-    if (filter.module !== 'All' && l.module !== filter.module) return false
-    if (filter.severity !== 'All' && l.severity !== filter.severity) return false
-    if (filter.search && !l.action.includes(filter.search.toUpperCase()) && !l.target.toLowerCase().includes(filter.search.toLowerCase()) && !l.user.includes(filter.search.toLowerCase())) return false
-    return true
-  })
 
   const fmt = (ts) => {
     const d = new Date(ts)
@@ -66,7 +51,7 @@ export default function LogsPage() {
 
   const exportLogs = () => {
     const csv = ['Timestamp,User,Role,Action,Target,Detail,Module,Severity,IP',
-      ...filtered.map(l => `"${fmt(l.ts)}","${l.user}","${l.role}","${l.action}","${l.target}","${l.detail}","${l.module}","${l.severity}","${l.ip}"`)
+      ...logs.map(l => `"${fmt(l.ts)}","${l.user}","${l.role}","${l.action}","${l.target}","${l.detail}","${l.module}","${l.severity}","${l.ip}"`)
     ].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const a = document.createElement('a')
@@ -95,6 +80,8 @@ export default function LogsPage() {
         </div>
       </div>
 
+      {error && <div style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10, padding: '10px 14px', color: '#f87171', fontSize: 12, marginBottom: 16 }}>⚠ {error}</div>}
+
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
         {[
@@ -120,7 +107,7 @@ export default function LogsPage() {
           {severities.map(s => <option key={s} value={s}>{s === 'All' ? 'All Severity' : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
         <div style={{ marginLeft: 'auto', fontSize: 12, color: '#475569', display: 'flex', alignItems: 'center' }}>
-          Showing {filtered.length} of {logs.length} logs
+          {loading ? 'Loading…' : `Showing ${logs.length} logs`}
         </div>
       </div>
 
@@ -132,15 +119,19 @@ export default function LogsPage() {
           ))}
         </div>
         <div style={{ maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
-          {filtered.map((l, i) => {
-            const sev = SEV_MAP[l.severity]
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>Loading logs…</div>
+          ) : logs.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>No logs found.</div>
+          ) : logs.map((l, i) => {
+            const sev = SEV_MAP[l.severity] || SEV_MAP.info
             const modColor = MOD_COLORS[l.module] || '#94a3b8'
             return (
-              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '180px 150px 160px 1fr 100px 80px', padding: '10px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #0f1c30' : 'none', alignItems: 'center' }}>
+              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '180px 150px 160px 1fr 100px 80px', padding: '10px 16px', borderBottom: i < logs.length - 1 ? '1px solid #0f1c30' : 'none', alignItems: 'center' }}>
                 <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{fmt(l.ts)}</div>
                 <div>
                   <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 600 }}>{l.user}</div>
-                  <div style={{ fontSize: 10, color: '#475569' }}>{l.role.replace('_', ' ')}</div>
+                  <div style={{ fontSize: 10, color: '#475569' }}>{(l.role || '').replace('_', ' ')}</div>
                 </div>
                 <div style={{ fontSize: 12, color: '#2dd4bf', fontWeight: 700, fontFamily: 'monospace' }}>{l.action}</div>
                 <div>

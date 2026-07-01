@@ -1,14 +1,25 @@
 // CamerasPage.tsx
 import { useEffect, useState } from 'react'
 import { cameraApi } from '../lib/api'
-import { Camera, Plus, Wifi, WifiOff } from 'lucide-react'
+import { Camera, Plus, Wifi, WifiOff, Search, Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
+
+const emptyForm = () => ({
+  name: '', camera_type: 'interior', location_desc: '', is_entry_cam: false, is_exit_cam: false,
+  branch_id: '00000000-0000-0000-0000-000000000002',
+  connection_type: 'rtsp',
+  rtsp_url: '',
+  onvif_host: '', onvif_port: '80', onvif_username: '', onvif_password: '',
+})
 
 export default function CamerasPage() {
   const [cameras, setCameras] = useState<any[]>([])
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm]       = useState({ name: '', rtsp_url: '', camera_type: 'interior', location_desc: '', is_entry_cam: false, branch_id: '00000000-0000-0000-0000-000000000002' })
+  const [form, setForm] = useState(emptyForm())
+  const [discovering, setDiscovering] = useState(false)
+  const [discovered, setDiscovered] = useState<any[]>([])
+  const [discoverError, setDiscoverError] = useState('')
 
   const fetch = async () => {
     const r = await cameraApi.list()
@@ -23,8 +34,36 @@ export default function CamerasPage() {
       await cameraApi.create(form)
       toast.success('Camera added')
       setShowAdd(false)
+      setForm(emptyForm())
+      setDiscovered([])
       fetch()
     } catch { toast.error('Failed to add camera') }
+  }
+
+  const scanNetwork = async () => {
+    setDiscovering(true)
+    setDiscoverError('')
+    try {
+      const r = await cameraApi.discover()
+      const found = Array.isArray(r.data) ? r.data : r.data?.data || []
+      setDiscovered(found)
+      if (!found.length) setDiscoverError('No ONVIF cameras found on the network.')
+    } catch {
+      setDiscoverError('Discovery failed — check network settings.')
+    } finally {
+      setDiscovering(false)
+    }
+  }
+
+  const pickDiscovered = (d: any) => {
+    setForm(f => ({
+      ...f,
+      name: f.name || d.name || d.hostname || '',
+      onvif_host: d.host || d.ip || d.address || '',
+      onvif_port: String(d.port || 80),
+      rtsp_url: d.rtsp_url || d.rtspUrl || '',
+    }))
+    toast.success('Camera details filled in')
   }
 
   return (
@@ -63,6 +102,7 @@ export default function CamerasPage() {
               <div>{cam.location_desc || 'No description'}</div>
               {cam.is_entry_cam && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Entry Cam</span>}
               {cam.is_exit_cam && <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full ml-1">Exit Cam</span>}
+              {cam.connection_type === 'onvif' && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-1">ONVIF</span>}
             </div>
           </div>
         ))}
@@ -86,11 +126,79 @@ export default function CamerasPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">RTSP URL</label>
-                <input value={form.rtsp_url} onChange={e => setForm({...form, rtsp_url: e.target.value})}
-                  placeholder="rtsp://192.168.1.100:554/stream1" required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Connection Method</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setForm({ ...form, connection_type: 'rtsp' })}
+                    className={clsx('flex-1 px-3 py-2 rounded-lg text-sm font-medium border', form.connection_type === 'rtsp' ? 'bg-accent text-white border-accent' : 'bg-white text-gray-600 border-gray-300')}>
+                    RTSP URL
+                  </button>
+                  <button type="button" onClick={() => setForm({ ...form, connection_type: 'onvif' })}
+                    className={clsx('flex-1 px-3 py-2 rounded-lg text-sm font-medium border', form.connection_type === 'onvif' ? 'bg-accent text-white border-accent' : 'bg-white text-gray-600 border-gray-300')}>
+                    ONVIF (standard)
+                  </button>
+                </div>
               </div>
+
+              {form.connection_type === 'rtsp' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">RTSP URL</label>
+                  <input value={form.rtsp_url} onChange={e => setForm({...form, rtsp_url: e.target.value})}
+                    placeholder="rtsp://192.168.1.100:554/stream1" required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                </div>
+              ) : (
+                <div className="space-y-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-600">Auto-discover ONVIF cameras on your network</span>
+                    <button type="button" onClick={scanNetwork} disabled={discovering}
+                      className="flex items-center gap-1.5 text-xs font-medium text-accent px-2.5 py-1.5 rounded-lg border border-accent/40 hover:bg-accent/5 disabled:opacity-60">
+                      {discovering ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+                      {discovering ? 'Scanning…' : 'Scan Network'}
+                    </button>
+                  </div>
+
+                  {discoverError && <div className="text-xs text-red-500">{discoverError}</div>}
+
+                  {discovered.length > 0 && (
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                      {discovered.map((d, i) => (
+                        <button key={i} type="button" onClick={() => pickDiscovered(d)}
+                          className="w-full text-left px-2.5 py-2 bg-white border border-gray-200 rounded-lg text-xs hover:border-accent">
+                          <div className="font-medium text-gray-800">{d.name || d.hostname || 'ONVIF Device'}</div>
+                          <div className="text-gray-400">{d.host || d.ip || d.address}{d.port ? `:${d.port}` : ''}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Camera IP / Host</label>
+                      <input value={form.onvif_host} onChange={e => setForm({...form, onvif_host: e.target.value})}
+                        placeholder="192.168.1.50" required
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
+                      <input value={form.onvif_port} onChange={e => setForm({...form, onvif_port: e.target.value})}
+                        placeholder="80"
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                      <input value={form.onvif_username} onChange={e => setForm({...form, onvif_username: e.target.value})}
+                        placeholder="admin"
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                      <input type="password" value={form.onvif_password} onChange={e => setForm({...form, onvif_password: e.target.value})}
+                        placeholder="••••••••"
+                        className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+                    </div>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                 <select value={form.camera_type} onChange={e => setForm({...form, camera_type: e.target.value})}
@@ -108,9 +216,13 @@ export default function CamerasPage() {
                 <input type="checkbox" checked={form.is_entry_cam} onChange={e => setForm({...form, is_entry_cam: e.target.checked})} />
                 Mark as Entry Camera (triggers check-in)
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.is_exit_cam} onChange={e => setForm({...form, is_exit_cam: e.target.checked})} />
+                Mark as Exit Camera (triggers check-out)
+              </label>
               <div className="flex gap-3 pt-2">
                 <button type="submit" className="btn-primary flex-1">Add Camera</button>
-                <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary flex-1">Cancel</button>
+                <button type="button" onClick={() => { setShowAdd(false); setForm(emptyForm()); setDiscovered([]); setDiscoverError('') }} className="btn-secondary flex-1">Cancel</button>
               </div>
             </form>
           </div>
