@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/fix-html.mjs",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "server": "node server/index.js",
+    "electron:dev": "concurrently \"npm run server\" \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "electron:build:win": "npm run build && electron-builder --win",
     "electron:build:mac": "npm run build && electron-builder --mac",
@@ -23,6 +24,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "server/**/*",
       "public/**/*",
       "package.json"
     ],
@@ -32,6 +34,14 @@
         "to": "dist",
         "filter": [
           "**/*"
+        ]
+      },
+      {
+        "from": "server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!data/**/*"
         ]
       }
     ],
@@ -58,7 +68,9 @@
   "dependencies": {
     "axios": "^1.7.7",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
     "date-fns": "^3.6.0",
+    "express": "^4.19.2",
     "lucide-react": "^0.447.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

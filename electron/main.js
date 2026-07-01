@@ -9,7 +9,34 @@ const fs = require('fs')
 // the rest of the app's CSS is explicitly light-themed.
 nativeTheme.themeSource = 'light'
 
+// Data must go to a writable per-user folder (e.g. %APPDATA%/Smart Office OS),
+// not the install directory, which is typically read-only once packaged.
+process.env.SOOS_DATA_DIR = path.join(app.getPath('userData'), 'server-data')
+
 let mainWindow
+let backendServer
+
+function startBackend() {
+  // The Express backend is plain Node.js code, and Electron's main
+  // process already runs on Node — so we can just require() and start
+  // it in-process. No separate server install or process to manage.
+  const serverPaths = [
+    path.join(__dirname, '../server/index.js'),
+    path.join(process.resourcesPath, 'app/server/index.js'),
+    path.join(app.getAppPath(), 'server/index.js'),
+  ]
+  const serverPath = serverPaths.find((p) => fs.existsSync(p))
+  if (!serverPath) {
+    console.error('Backend server file not found, tried:', serverPaths)
+    return
+  }
+  try {
+    const { startServer } = require(serverPath)
+    startServer(4000).then((server) => { backendServer = server })
+  } catch (e) {
+    console.error('Failed to start backend server:', e)
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -60,6 +87,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  startBackend()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -67,5 +95,6 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  if (backendServer) backendServer.close()
   if (process.platform !== 'darwin') app.quit()
 })

@@ -1,9 +1,9 @@
 // CamerasPage.tsx
-import { useEffect, useState } from 'react'
-import { cameraApi } from '../lib/api'
+import { useState } from 'react'
 import { Camera, Plus, Wifi, WifiOff, Search, Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
+import { usePersistedState } from '../hooks/usePersistedState'
 
 const emptyForm = () => ({
   name: '', camera_type: 'interior', location_desc: '', is_entry_cam: false, is_exit_cam: false,
@@ -14,45 +14,40 @@ const emptyForm = () => ({
 })
 
 export default function CamerasPage() {
-  const [cameras, setCameras] = useState<any[]>([])
+  // Persisted locally — no backend server required. Cameras you add here
+  // will still be here the next time you open the app.
+  const [cameras, setCameras] = usePersistedState('soos_cameras', [])
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState(emptyForm())
   const [discovering, setDiscovering] = useState(false)
   const [discovered, setDiscovered] = useState<any[]>([])
   const [discoverError, setDiscoverError] = useState('')
 
-  const fetch = async () => {
-    const r = await cameraApi.list()
-    setCameras(r.data)
-  }
-
-  useEffect(() => { fetch() }, [])
-
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    try {
-      await cameraApi.create(form)
-      toast.success('Camera added')
-      setShowAdd(false)
-      setForm(emptyForm())
-      setDiscovered([])
-      fetch()
-    } catch { toast.error('Failed to add camera') }
+    if (!form.name.trim()) { toast.error('Camera name is required'); return }
+    const newCamera = {
+      ...form,
+      id: crypto.randomUUID(),
+      status: 'active',
+      created_at: new Date().toISOString(),
+    }
+    setCameras(prev => [...prev, newCamera])
+    toast.success('Camera added')
+    setShowAdd(false)
+    setForm(emptyForm())
+    setDiscovered([])
   }
 
   const scanNetwork = async () => {
     setDiscovering(true)
     setDiscoverError('')
-    try {
-      const r = await cameraApi.discover()
-      const found = Array.isArray(r.data) ? r.data : r.data?.data || []
-      setDiscovered(found)
-      if (!found.length) setDiscoverError('No ONVIF cameras found on the network.')
-    } catch {
-      setDiscoverError('Discovery failed — check network settings.')
-    } finally {
+    // No backend/network discovery service is available in this offline
+    // build — let the person know instead of hanging or silently failing.
+    setTimeout(() => {
+      setDiscoverError('Network discovery requires a connected backend, which is not set up. Enter the RTSP/ONVIF details manually above.')
       setDiscovering(false)
-    }
+    }, 500)
   }
 
   const pickDiscovered = (d: any) => {
