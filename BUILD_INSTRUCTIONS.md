@@ -32,7 +32,17 @@ the app launches — no separate installation needed on the target PC.
 accounts if you add more logic around auth later.)
 
 ## Note
-Cameras, Employees, Departments, Shifts, and Attendance now persist to a
-real local data file. Payroll, Alerts, Logs, and Reports still use demo
-mock data (in-memory) and reset on refresh — ask if you'd like those wired
-up to the backend too.
+Everything below now saves permanently to the local backend (survives app
+restarts and PC restarts):
+- Employees, Departments, Shifts, Attendance
+- Cameras
+- Payroll: loans, bonuses, payroll runs
+- Logs — an audit trail is now written automatically whenever something is
+  created/updated/deleted (login, employee changes, payroll runs, check-ins,
+  etc.), so the Logs page shows real history instead of nothing.
+- Alerts — persisted, but nothing in the app currently *generates* alerts
+  automatically, so this list starts empty until something creates one.
+
+Still using temporary/demo (in-memory) data: Reports page. Ask if you'd
+like that wired up to the backend too (it needs to compute daily/monthly
+summaries from the attendance data).

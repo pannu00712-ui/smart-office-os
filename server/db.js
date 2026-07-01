@@ -21,6 +21,11 @@ const DEFAULT_DATA = {
   departments: [],
   shifts: [],
   attendance: [],
+  logs: [],
+  loans: [],
+  bonuses: [],
+  payrollRuns: [],
+  alerts: [],
 };
 
 function ensureDbFile() {
@@ -33,7 +38,15 @@ function ensureDbFile() {
 function readDb() {
   ensureDbFile();
   try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    // Fill in any collections missing from an older db.json (e.g. upgrading
+    // from a version of the app that didn't have logs/payroll/alerts yet).
+    let changed = false;
+    for (const key of Object.keys(DEFAULT_DATA)) {
+      if (!(key in data)) { data[key] = Array.isArray(DEFAULT_DATA[key]) ? [] : DEFAULT_DATA[key]; changed = true; }
+    }
+    if (changed) writeDb(data);
+    return data;
   } catch (e) {
     console.error('Failed to read db.json, resetting to defaults:', e.message);
     fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_DATA, null, 2));
@@ -49,4 +62,15 @@ function nextId(list) {
   return list.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
 }
 
-module.exports = { readDb, writeDb, nextId, DB_FILE };
+// Appends an audit-log entry. Called from various endpoints below whenever
+// something meaningful happens (an employee is added, payroll runs, etc.)
+// so the Logs page has real, persisted data instead of nothing.
+function writeLog(db, { user = 'admin@demo.com', role = 'admin', action, target = '', detail = '', module = 'System', severity = 'info' }) {
+  db.logs.push({
+    id: nextId(db.logs),
+    ts: new Date().toISOString(),
+    user, role, action, target, detail, module, severity,
+  });
+}
+
+module.exports = { readDb, writeDb, nextId, writeLog, DB_FILE };
