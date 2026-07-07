@@ -1,15 +1,12 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react'
+import { usePersistedState } from '../hooks/usePersistedState'
+import { api } from '../lib/api'
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const EMPLOYEES = [
-  { id: 1, code: 'EMP-001', name: 'Zara Ahmed', dept: 'Engineering', designation: 'Senior Developer', dob: '1994-06-22', joiningDate: '2022-03-15', photo: null },
-  { id: 2, code: 'EMP-002', name: 'Hassan Malik', dept: 'HR', designation: 'HR Manager', dob: '1990-06-25', joiningDate: '2021-07-01', photo: null },
-  { id: 3, code: 'EMP-003', name: 'Ayesha Khan', dept: 'Finance', designation: 'Finance Analyst', dob: '1996-07-02', joiningDate: '2023-01-10', photo: null },
-  { id: 4, code: 'EMP-004', name: 'Omar Farooq', dept: 'Engineering', designation: 'Backend Engineer', dob: '1992-12-15', joiningDate: '2022-09-20', photo: null },
-  { id: 5, code: 'EMP-005', name: 'Sana Baig', dept: 'Marketing', designation: 'Marketing Lead', dob: '1995-06-28', joiningDate: '2020-11-15', photo: null },
-  { id: 6, code: 'EMP-006', name: 'Bilal Siddiqui', dept: 'Operations', designation: 'Ops Executive', dob: '1998-08-10', joiningDate: '2023-06-01', photo: null },
-]
+// NOTE: Employees are no longer hardcoded here — they're loaded from the real
+// Employees module (see loadEmployees() below) so this page always matches
+// whatever employees actually exist, instead of a fixed demo list of 6 people.
 
 const DOC_TYPES = ['CNIC (Front)', 'CNIC (Back)', 'Employment Contract', 'Degree / Education', 'Experience Letter', 'Police Clearance', 'Medical Certificate', 'Bank Statement']
 
@@ -49,15 +46,19 @@ const daysUntil = (dateStr) => {
   return Math.ceil((target - today) / (1000 * 60 * 60 * 24))
 }
 
-const getUpcomingEvents = () => {
+const getUpcomingEvents = (employees) => {
   const events = []
-  EMPLOYEES.forEach(e => {
-    const bdayIn = daysUntil(e.dob)
-    if (bdayIn <= 30) events.push({ type: 'birthday', emp: e, daysIn: bdayIn, date: e.dob })
-    const annivIn = daysUntil(e.joiningDate)
-    if (annivIn <= 30) {
-      const years = new Date('2026-06-30').getFullYear() - new Date(e.joiningDate).getFullYear() + (annivIn === 0 ? 0 : 1)
-      events.push({ type: 'anniversary', emp: e, daysIn: annivIn, date: e.joiningDate, years })
+  employees.forEach(e => {
+    if (e.dob) {
+      const bdayIn = daysUntil(e.dob)
+      if (bdayIn <= 30) events.push({ type: 'birthday', emp: e, daysIn: bdayIn, date: e.dob })
+    }
+    if (e.joiningDate) {
+      const annivIn = daysUntil(e.joiningDate)
+      if (annivIn <= 30) {
+        const years = new Date('2026-06-30').getFullYear() - new Date(e.joiningDate).getFullYear() + (annivIn === 0 ? 0 : 1)
+        events.push({ type: 'anniversary', emp: e, daysIn: annivIn, date: e.joiningDate, years })
+      }
     }
   })
   return events.sort((a, b) => a.daysIn - b.daysIn)
@@ -84,10 +85,11 @@ const StarRating = ({ value, size = 14 }) => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EmployeeRecordsPage() {
   const [tab, setTab] = useState('overview')
-  const [documents, setDocuments] = useState(INIT_DOCUMENTS)
-  const [appraisals, setAppraisals] = useState(INIT_APPRAISALS)
-  const [trainings, setTrainings] = useState(INIT_TRAININGS)
-  const [selectedEmp, setSelectedEmp] = useState(EMPLOYEES[0].id)
+  const [documents, setDocuments] = usePersistedState('soos_emp_documents', INIT_DOCUMENTS)
+  const [appraisals, setAppraisals] = usePersistedState('soos_emp_appraisals', INIT_APPRAISALS)
+  const [trainings, setTrainings] = usePersistedState('soos_emp_trainings', INIT_TRAININGS)
+  const [employees, setEmployees] = useState([])
+  const [selectedEmp, setSelectedEmp] = useState(null)
   const [showUpload, setShowUpload] = useState(false)
   const [showAppraisal, setShowAppraisal] = useState(false)
   const [showTraining, setShowTraining] = useState(false)
@@ -96,8 +98,31 @@ export default function EmployeeRecordsPage() {
   const [apprForm, setApprForm] = useState({ period: '', reviewer: '', quality: 3, productivity: 3, communication: 3, teamwork: 3, punctuality: 3, comments: '', goals: '' })
   const [trainForm, setTrainForm] = useState({ title: '', type: 'Training', provider: '', startDate: '', endDate: '', status: 'in-progress' })
 
-  const events = getUpcomingEvents()
-  const emp = EMPLOYEES.find(e => e.id === selectedEmp)
+  // Load real employees from the Employees module's backend so this page
+  // always reflects whoever is actually in the system, instead of a fixed
+  // demo list. Falls back to an empty list (not fake employees) if the
+  // backend isn't reachable yet.
+  useEffect(() => {
+    api.getEmployees()
+      .then(list => {
+        const mapped = (list || []).map(e => ({
+          id: e.id,
+          code: e.code,
+          name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.code,
+          dept: e.department,
+          designation: e.designation,
+          dob: e.dob || null,
+          joiningDate: e.joiningDate,
+          photo: e.photo || null,
+        }))
+        setEmployees(mapped)
+        setSelectedEmp(prev => prev ?? (mapped[0] ? mapped[0].id : null))
+      })
+      .catch(() => setEmployees([]))
+  }, [])
+
+  const events = getUpcomingEvents(employees)
+  const emp = employees.find(e => e.id === selectedEmp)
 
   const empDocs = documents.filter(d => d.empId === selectedEmp)
   const empAppraisals = appraisals.filter(a => a.empId === selectedEmp)
@@ -111,6 +136,21 @@ export default function EmployeeRecordsPage() {
     setDocuments(p => [...p, { id: Date.now(), empId: selectedEmp, type: docForm.type, fileName: docForm.fileName, uploadDate: new Date().toISOString().split('T')[0], size: (Math.random() * 2 + 0.3).toFixed(1) + ' MB', verified: false }])
     setDocForm({ type: DOC_TYPES[0], fileName: '' })
     setShowUpload(false)
+  }
+
+  const deleteDoc = (id) => {
+    if (!confirm('Delete this document?')) return
+    setDocuments(p => p.filter(d => d.id !== id))
+  }
+
+  const deleteAppraisal = (id) => {
+    if (!confirm('Delete this appraisal?')) return
+    setAppraisals(p => p.filter(a => a.id !== id))
+  }
+
+  const deleteTraining = (id) => {
+    if (!confirm('Delete this training/certification record?')) return
+    setTrainings(p => p.filter(t => t.id !== id))
   }
 
   const saveAppraisal = () => {
@@ -207,7 +247,10 @@ export default function EmployeeRecordsPage() {
           {/* Employee List */}
           <div style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, padding: 12, height: 'fit-content' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', padding: '4px 8px 10px' }}>Select Employee</div>
-            {EMPLOYEES.map(e => (
+            {employees.length === 0 && (
+              <div style={{ padding: '10px 8px', fontSize: 12, color: '#64748b' }}>No employees yet — add some in the Employees page.</div>
+            )}
+            {employees.map(e => (
               <div key={e.id} onClick={() => setSelectedEmp(e.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 10, cursor: 'pointer', background: selectedEmp === e.id ? 'rgba(45,212,191,0.12)' : 'transparent', marginBottom: 2 }}>
                 <Avatar name={e.name} id={e.id} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -220,6 +263,12 @@ export default function EmployeeRecordsPage() {
 
           {/* Right Content */}
           <div>
+            {!emp && (
+              <div style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                Select an employee to view their records — or add one in the Employees page first.
+              </div>
+            )}
+            {emp && <>
             {/* Documents Tab */}
             {tab === 'documents' && (
               <div>
@@ -259,6 +308,11 @@ export default function EmployeeRecordsPage() {
                             Mark as Verified
                           </button>
                         )}
+                        {doc && (
+                          <button onClick={() => deleteDoc(doc.id)} style={{ marginTop: 6, width: '100%', padding: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                            Delete
+                          </button>
+                        )}
                       </div>
                     )
                   })}
@@ -275,13 +329,16 @@ export default function EmployeeRecordsPage() {
                 </div>
                 {empAppraisals.length === 0 && <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>No appraisals yet</div>}
                 {empAppraisals.map(a => (
-                  <div key={a.id} onClick={() => setViewAppraisal(a)} style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 14, padding: '16px 18px', marginBottom: 12, cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div key={a.id} style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 14, padding: '16px 18px', marginBottom: 12 }}>
+                    <div onClick={() => setViewAppraisal(a)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}>
                       <div>
                         <div style={{ fontSize: 15, fontWeight: 700 }}>{a.period}</div>
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Reviewed by {a.reviewer} · {a.date}</div>
                       </div>
-                      <span style={{ padding: '3px 10px', borderRadius: 20, background: STATUS_COL[a.status] + '20', color: STATUS_COL[a.status], fontSize: 11, fontWeight: 700 }}>{a.status}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ padding: '3px 10px', borderRadius: 20, background: STATUS_COL[a.status] + '20', color: STATUS_COL[a.status], fontSize: 11, fontWeight: 700 }}>{a.status}</span>
+                        <button onClick={(e) => { e.stopPropagation(); deleteAppraisal(a.id) }} style={{ padding: '4px 10px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Delete</button>
+                      </div>
                     </div>
                     {a.status === 'completed' && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
@@ -321,10 +378,14 @@ export default function EmployeeRecordsPage() {
                         📜 {t.certificateUrl}
                       </div>
                     )}
+                    <button onClick={() => deleteTraining(t.id)} style={{ marginTop: 10, padding: '6px 14px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, color: '#f87171', cursor: 'pointer', fontSize: 11, fontWeight: 700, display: 'block' }}>
+                      Delete
+                    </button>
                   </div>
                 ))}
               </div>
             )}
+            </>}
           </div>
         </div>
       )}
