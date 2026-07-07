@@ -3,12 +3,21 @@ import { useState } from 'react'
 import { useApp, ROLE_PERMISSIONS } from '../store/appContext'
 import { api } from '../lib/api'
 
-const USERS = [
-  { id: 1, email: 'admin@soos.io', name: 'Admin', role: 'super_admin' },
-  { id: 2, email: 'hr@soos.io', name: 'Hassan Malik', role: 'hr_manager' },
-  { id: 3, email: 'manager@soos.io', name: 'Zara Ahmed', role: 'manager' },
-  { id: 4, email: 'zara@soos.io', name: 'Zara Ahmed', role: 'employee' },
-]
+// Users loaded from localStorage so they persist and can be deleted
+function loadUsers() {
+  try {
+    const saved = localStorage.getItem('soos_users')
+    if (saved) return JSON.parse(saved)
+  } catch {}
+  return [
+    { id: 1, email: 'admin@soos.io', name: 'Admin', role: 'super_admin' },
+    { id: 2, email: 'hr@soos.io',    name: 'HR Manager', role: 'hr_manager' },
+  ]
+}
+function saveUsers(users) {
+  try { localStorage.setItem('soos_users', JSON.stringify(users)) } catch {}
+}
+const USERS = loadUsers()
 
 const BACKUP_HISTORY = [
   { id: 1, date: '2025-06-19 03:00 AM', size: '4.2 MB', type: 'Automatic', status: 'success' },
@@ -24,7 +33,14 @@ export default function SettingsPage() {
   const [backing, setBacking] = useState(false)
   const [restoring, setRestoring] = useState(null)
   const [users, setUsers] = useState(USERS)
+  const [showAddUser, setShowAddUser] = useState(false)
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'employee' })
   const [msg, setMsg] = useState('')
+
+  const updateUsers = (updated) => {
+    setUsers(updated)
+    saveUsers(updated)
+  }
   const [serverUrl, setServerUrlInput] = useState(api.getServerUrl())
   const [testing, setTesting] = useState(false)
   const [connStatus, setConnStatus] = useState(null) // null | 'ok' | 'fail'

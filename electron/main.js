@@ -16,6 +16,12 @@ process.env.SOOS_DATA_DIR = path.join(app.getPath('userData'), 'server-data')
 let mainWindow
 let backendServer
 
+// Returns a Promise that resolves once the backend is actually listening
+// (or resolves anyway after a failure, so the UI never hangs forever).
+// createWindow() now awaits this — previously it ran in parallel, so the
+// renderer's very first api.getEmployees()/getAttendance()/etc. calls could
+// fire before Express had finished binding to the port, making pages look
+// empty until a manual reload even though the backend was fine a moment later.
 function startBackend() {
   // The Express backend is plain Node.js code, and Electron's main
   // process already runs on Node — so we can just require() and start
@@ -28,13 +34,16 @@ function startBackend() {
   const serverPath = serverPaths.find((p) => fs.existsSync(p))
   if (!serverPath) {
     console.error('Backend server file not found, tried:', serverPaths)
-    return
+    return Promise.resolve()
   }
   try {
     const { startServer } = require(serverPath)
-    startServer(4000).then((server) => { backendServer = server })
+    return startServer(4000)
+      .then((server) => { backendServer = server })
+      .catch((e) => { console.error('Backend server failed to start:', e) })
   } catch (e) {
     console.error('Failed to start backend server:', e)
+    return Promise.resolve()
   }
 }
 
@@ -86,8 +95,8 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
-  startBackend()
+app.whenReady().then(async () => {
+  await startBackend()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
