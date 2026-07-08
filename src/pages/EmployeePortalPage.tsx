@@ -1,34 +1,14 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react'
 import { attendanceApi } from '../lib/api'
+import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
-const MY_DATA = {
-  code: 'EMP-001', name: 'Zara Ahmed', email: 'zara@soos.io',
-  department: 'Engineering', designation: 'Senior Developer',
-  shift: 'Morning (9–6)', joiningDate: '2022-03-15',
-  leave: { annual: 18, sick: 10, casual: 7, annualUsed: 5, sickUsed: 2, casualUsed: 1 },
-}
+const MY_LEAVES = []
 
-const MY_LEAVES = [
-  { id: 1, type: 'Annual', from: '2025-06-20', to: '2025-06-22', days: 3, reason: 'Family vacation', status: 'approved', appliedOn: '2025-06-10' },
-  { id: 2, type: 'Sick', from: '2025-05-10', to: '2025-05-10', days: 1, reason: 'Not feeling well', status: 'approved', appliedOn: '2025-05-10' },
-  { id: 3, type: 'Casual', from: '2025-04-15', to: '2025-04-15', days: 1, reason: 'Personal work', status: 'pending', appliedOn: '2025-04-14' },
-]
+const MY_PAYSLIPS = []
 
-const MY_PAYSLIPS = [
-  { month: 'June 2025', gross: 182000, deductions: 8870, net: 173130, status: 'paid' },
-  { month: 'May 2025', gross: 180000, deductions: 8870, net: 171130, status: 'paid' },
-  { month: 'April 2025', gross: 180000, deductions: 8870, net: 171130, status: 'paid' },
-]
-
-const ATTENDANCE = [
-  { date: '2025-06-19', checkIn: '08:55', checkOut: '18:10', status: 'present', hours: '9h 15m' },
-  { date: '2025-06-18', checkIn: '09:12', checkOut: '18:00', status: 'late', hours: '8h 48m' },
-  { date: '2025-06-17', checkIn: '08:50', checkOut: '18:05', status: 'present', hours: '9h 15m' },
-  { date: '2025-06-16', checkIn: '-', checkOut: '-', status: 'absent', hours: '-' },
-  { date: '2025-06-15', checkIn: '-', checkOut: '-', status: 'sunday', hours: '-' },
-]
+const ATTENDANCE = []
 
 const STATUS_MAP = {
   approved: { color: '#34d399', bg: 'rgba(52,211,153,0.12)', label: 'Approved' },
@@ -42,6 +22,18 @@ const ATT_MAP = {
 }
 
 export default function EmployeePortalPage() {
+  const { user } = useAuthStore()
+  const MY_DATA = {
+    code: user?.code || user?.email || '-',
+    name: user?.name || 'Employee',
+    email: user?.email || '-',
+    department: user?.department || '-',
+    designation: user?.designation || user?.role || '-',
+    shift: user?.shift || '-',
+    joiningDate: user?.joiningDate || '-',
+    leave: { annual: 0, sick: 0, casual: 0, annualUsed: 0, sickUsed: 0, casualUsed: 0 },
+  }
+
   const [tab, setTab] = useState('overview')
   const [leaves, setLeaves] = useState(MY_LEAVES)
   const [showApply, setShowApply] = useState(false)
@@ -114,7 +106,7 @@ export default function EmployeePortalPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#2dd4bf', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#0f172a' }}>ZA</div>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#2dd4bf', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#0f172a' }}>{MY_DATA.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</div>
           <div>
             <div style={{ fontSize: 22, fontWeight: 800 }}>{MY_DATA.name}</div>
             <div style={{ fontSize: 13, color: '#64748b' }}>{MY_DATA.code} · {MY_DATA.designation} · {MY_DATA.department}</div>
@@ -175,7 +167,7 @@ export default function EmployeePortalPage() {
                   <span style={{ fontSize: 13, fontWeight: 700, color: l.color }}>{l.total - l.used} / {l.total} remaining</span>
                 </div>
                 <div style={{ height: 6, background: '#0d1526', borderRadius: 3 }}>
-                  <div style={{ height: '100%', width: `${(l.used / l.total) * 100}%`, background: l.color, borderRadius: 3 }} />
+                  <div style={{ height: '100%', width: `${l.total ? (l.used / l.total) * 100 : 0}%`, background: l.color, borderRadius: 3 }} />
                 </div>
               </div>
             ))}
@@ -201,6 +193,7 @@ export default function EmployeePortalPage() {
           {/* Recent Attendance */}
           <div style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, padding: 20 }}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#34d399' }}>⏰ Recent Attendance</div>
+            {ATTENDANCE.length === 0 && <div style={{ fontSize: 12, color: '#475569', padding: '8px 0' }}>No attendance records yet</div>}
             {ATTENDANCE.slice(0, 4).map(a => (
               <div key={a.date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #0f1c30' }}>
                 <span style={{ fontSize: 12, color: '#64748b' }}>{a.date}</span>
@@ -212,8 +205,9 @@ export default function EmployeePortalPage() {
 
           {/* Last Payslip */}
           <div style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, padding: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#fbbf24' }}>💰 Last Payslip — {MY_PAYSLIPS[0].month}</div>
-            {[
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16, color: '#fbbf24' }}>💰 Last Payslip{MY_PAYSLIPS[0] ? ` — ${MY_PAYSLIPS[0].month}` : ''}</div>
+            {!MY_PAYSLIPS[0] && <div style={{ fontSize: 12, color: '#475569', padding: '8px 0' }}>No payslips yet</div>}
+            {MY_PAYSLIPS[0] && [
               ['Gross Salary', MY_PAYSLIPS[0].gross, '#34d399'],
               ['Deductions', MY_PAYSLIPS[0].deductions, '#f87171'],
               ['Net Pay', MY_PAYSLIPS[0].net, '#2dd4bf'],
@@ -236,6 +230,7 @@ export default function EmployeePortalPage() {
             </button>
           </div>
           <div style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 16, overflow: 'hidden' }}>
+            {leaves.length === 0 && <div style={{ fontSize: 13, color: '#475569', padding: '24px', textAlign: 'center' }}>No leave applications yet</div>}
             {leaves.map((l, i) => {
               const s = STATUS_MAP[l.status]
               return (
@@ -255,6 +250,7 @@ export default function EmployeePortalPage() {
       {/* Payslips Tab */}
       {tab === 'payslips' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {MY_PAYSLIPS.length === 0 && <div style={{ fontSize: 13, color: '#475569', padding: '24px', textAlign: 'center' }}>No payslips yet</div>}
           {MY_PAYSLIPS.map(p => (
             <div key={p.month} style={{ background: '#131c2e', border: '1px solid #1e2d45', borderRadius: 14, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{p.month}</div>
@@ -275,6 +271,7 @@ export default function EmployeePortalPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 1fr 1fr 120px', padding: '10px 20px', borderBottom: '1px solid #1e2d45', background: '#0d1526' }}>
             {['Date', 'Check In', 'Check Out', 'Hours', 'Status'].map(h => <div key={h} style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>{h}</div>)}
           </div>
+          {ATTENDANCE.length === 0 && <div style={{ fontSize: 13, color: '#475569', padding: '24px', textAlign: 'center' }}>No attendance records yet</div>}
           {ATTENDANCE.map((a, i) => (
             <div key={a.date} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 1fr 1fr 120px', padding: '12px 20px', borderBottom: i < ATTENDANCE.length - 1 ? '1px solid #0f1c30' : 'none', alignItems: 'center' }}>
               <div style={{ fontSize: 13, color: '#94a3b8' }}>{a.date}</div>

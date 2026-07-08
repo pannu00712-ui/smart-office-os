@@ -33,8 +33,6 @@ export default function SettingsPage() {
   const [backing, setBacking] = useState(false)
   const [restoring, setRestoring] = useState(null)
   const [users, setUsers] = useState(USERS)
-  const [showAddUser, setShowAddUser] = useState(false)
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'employee' })
   const [msg, setMsg] = useState('')
 
   const updateUsers = (updated) => {

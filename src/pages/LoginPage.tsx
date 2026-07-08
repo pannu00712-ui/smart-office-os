@@ -5,8 +5,8 @@ import toast from 'react-hot-toast'
 import { Building2, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const [email, setEmail]       = useState('admin@demo.com')
-  const [password, setPassword] = useState('Admin@1234')
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
   const [showPw, setShowPw]     = useState(false)
   const { login, isLoading }    = useAuthStore()
   const navigate                = useNavigate()
@@ -72,11 +72,6 @@ export default function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-600 font-medium">Demo Credentials</p>
-            <p className="text-xs text-blue-500">admin@demo.com / Admin@1234</p>
-          </div>
         </div>
       </div>
     </div>

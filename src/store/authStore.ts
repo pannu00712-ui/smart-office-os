@@ -24,7 +24,7 @@ function findOfflineAccount(email, password) {
 }
 
 function loadStoredUser() {
-  try { const r = localStorage.getItem('demo_user'); return r ? JSON.parse(r) : null; } catch { return null; }
+  try { const r = localStorage.getItem('soos_user'); return r ? JSON.parse(r) : null; } catch { return null; }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         const token = 'offline-token-' + Date.now()
         try {
           localStorage.setItem('access_token', token)
-          localStorage.setItem('demo_user', JSON.stringify(offline.user))
+          localStorage.setItem('soos_user', JSON.stringify(offline.user))
         } catch {}
         set({ token, user: offline.user, isLoading: false })
         return
@@ -68,7 +68,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     try {
       localStorage.removeItem('access_token')
-      localStorage.removeItem('demo_user')
+      localStorage.removeItem('soos_user')
     } catch {}
     set({ user: null, token: null })
     window.location.hash = '/login'

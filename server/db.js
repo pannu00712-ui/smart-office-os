@@ -14,8 +14,7 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 const DEFAULT_DATA = {
   users: [
-    { id: 1, name: 'Admin', email: 'admin@demo.com', password: 'Admin@1234', role: 'admin' },
-    { id: 2, name: 'Admin', email: 'admin@soos.io', password: 'admin123', role: 'admin' },
+    { id: 1, name: 'Admin', email: 'admin@soos.io', password: 'admin123', role: 'admin' },
   ],
   employees: [],
   departments: [],
@@ -65,7 +64,7 @@ function nextId(list) {
 // Appends an audit-log entry. Called from various endpoints below whenever
 // something meaningful happens (an employee is added, payroll runs, etc.)
 // so the Logs page has real, persisted data instead of nothing.
-function writeLog(db, { user = 'admin@demo.com', role = 'admin', action, target = '', detail = '', module = 'System', severity = 'info' }) {
+function writeLog(db, { user = 'admin@soos.io', role = 'admin', action, target = '', detail = '', module = 'System', severity = 'info' }) {
   db.logs.push({
     id: nextId(db.logs),
     ts: new Date().toISOString(),

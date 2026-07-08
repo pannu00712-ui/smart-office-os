@@ -31,30 +31,6 @@ const DEFAULT_SALARY = (basic = 0) => ({
   bankName: "", bankAccount: "", taxExempt: false,
 });
 
-// ─── Mock Employees ───────────────────────────────────────────────────────────
-const MOCK_EMPLOYEES = [
-  { id: 1, code: "EMP-001", firstName: "Zara", lastName: "Ahmed", department: "Engineering", designation: "Senior Developer", salary: 120000, status: "active", photo: null, workCode: { payClass: "Monthly Salaried", overtimeClass: "OT-1.5x", employmentType: "Permanent" }, salaryStructure: { ...DEFAULT_SALARY(120000), houseRent: 45, medicalAllowance: 5000, transportAllowance: 3000, eobi: 370, incomeTax: 8500, bankName: "Meezan Bank", bankAccount: "01230123456789" } },
-  { id: 2, code: "EMP-002", firstName: "Hassan", lastName: "Malik", department: "HR", designation: "HR Manager", salary: 95000, status: "active", photo: null, workCode: { payClass: "Monthly Salaried", overtimeClass: "OT-1.5x", employmentType: "Permanent" }, salaryStructure: { ...DEFAULT_SALARY(95000), medicalAllowance: 4000, transportAllowance: 2500, eobi: 370, incomeTax: 5200, bankName: "HBL", bankAccount: "06060606060606" } },
-  { id: 3, code: "EMP-003", firstName: "Ayesha", lastName: "Khan", department: "Finance", designation: "Finance Analyst", salary: 85000, status: "active", photo: null, workCode: { payClass: "Monthly Salaried", overtimeClass: "No Overtime", employmentType: "Permanent" }, salaryStructure: { ...DEFAULT_SALARY(85000), medicalAllowance: 3500, transportAllowance: 2000, eobi: 370, incomeTax: 3800, bankName: "UBL", bankAccount: "09870987098709" } },
-  { id: 4, code: "EMP-004", firstName: "Omar", lastName: "Farooq", department: "Engineering", designation: "Backend Engineer", salary: 105000, status: "active", photo: null, workCode: { payClass: "Monthly Salaried", overtimeClass: "OT-1.5x", employmentType: "Permanent" }, salaryStructure: { ...DEFAULT_SALARY(105000), medicalAllowance: 4500, transportAllowance: 2500, eobi: 370, incomeTax: 7000, bankName: "MCB", bankAccount: "11110011111100" } },
-  { id: 5, code: "EMP-005", firstName: "Sana", lastName: "Baig", department: "Marketing", designation: "Marketing Lead", salary: 90000, status: "active", photo: null, workCode: { payClass: "Monthly Salaried", overtimeClass: "OT-1.5x", employmentType: "Permanent" }, salaryStructure: { ...DEFAULT_SALARY(90000), medicalAllowance: 4000, transportAllowance: 2000, eobi: 370, incomeTax: 4500, bankName: "Allied Bank", bankAccount: "55005500550055" } },
-  { id: 6, code: "EMP-006", firstName: "Bilal", lastName: "Siddiqui", department: "Operations", designation: "Ops Executive", salary: 65000, status: "inactive", photo: null, workCode: { payClass: "Monthly Salaried", overtimeClass: "No Overtime", employmentType: "Contractual" }, salaryStructure: { ...DEFAULT_SALARY(65000), eobi: 370, bankName: "Bank Alfalah", bankAccount: "66006600660066" } },
-];
-
-// ─── Mock Loans ───────────────────────────────────────────────────────────────
-const INIT_LOANS = [
-  { id: 1, empId: 1, empName: "Zara Ahmed", empCode: "EMP-001", type: "Personal Loan", principal: 200000, remaining: 120000, monthlyInstallment: 10000, startDate: "2024-06-01", endDate: "2025-11-01", status: "active", purpose: "Home renovation" },
-  { id: 2, empId: 4, empName: "Omar Farooq", empCode: "EMP-004", type: "Emergency Loan", principal: 50000, remaining: 25000, monthlyInstallment: 5000, startDate: "2025-01-01", endDate: "2025-10-01", status: "active", purpose: "Medical emergency" },
-  { id: 3, empId: 2, empName: "Hassan Malik", empCode: "EMP-002", type: "Personal Loan", principal: 100000, remaining: 0, monthlyInstallment: 10000, startDate: "2024-01-01", endDate: "2024-10-01", status: "completed", purpose: "Education" },
-];
-
-// ─── Mock Bonuses ─────────────────────────────────────────────────────────────
-const INIT_BONUSES = [
-  { id: 1, empId: 1, empName: "Zara Ahmed", empCode: "EMP-001", type: "Performance", amount: 25000, month: "2025-06", reason: "Excellent Q2 performance", status: "approved" },
-  { id: 2, empId: 2, empName: "Hassan Malik", empCode: "EMP-002", type: "Eid Bonus", amount: 15000, month: "2025-06", reason: "Eid ul Adha bonus", status: "approved" },
-  { id: 3, empId: 3, empName: "Ayesha Khan", empCode: "EMP-003", type: "Incentive", amount: 10000, month: "2025-06", reason: "Project completion incentive", status: "pending" },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const PKR = (n) => "PKR " + Number(n).toLocaleString();
 const fmt = (n) => Number(n).toLocaleString();

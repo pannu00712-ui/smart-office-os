@@ -10,30 +10,11 @@ import { api } from '../lib/api'
 
 const DOC_TYPES = ['CNIC (Front)', 'CNIC (Back)', 'Employment Contract', 'Degree / Education', 'Experience Letter', 'Police Clearance', 'Medical Certificate', 'Bank Statement']
 
-const INIT_DOCUMENTS = [
-  { id: 1, empId: 1, type: 'CNIC (Front)', fileName: 'zara_cnic_front.pdf', uploadDate: '2022-03-15', size: '1.2 MB', verified: true },
-  { id: 2, empId: 1, type: 'Employment Contract', fileName: 'zara_contract_2022.pdf', uploadDate: '2022-03-15', size: '480 KB', verified: true },
-  { id: 3, empId: 1, type: 'Degree / Education', fileName: 'zara_bscs_degree.pdf', uploadDate: '2022-03-16', size: '2.1 MB', verified: true },
-  { id: 4, empId: 2, type: 'CNIC (Front)', fileName: 'hassan_cnic.pdf', uploadDate: '2021-07-01', size: '1.1 MB', verified: true },
-  { id: 5, empId: 2, type: 'Employment Contract', fileName: 'hassan_contract.pdf', uploadDate: '2021-07-01', size: '460 KB', verified: false },
-  { id: 6, empId: 3, type: 'CNIC (Front)', fileName: 'ayesha_cnic.pdf', uploadDate: '2023-01-10', size: '1.3 MB', verified: true },
-]
+const INIT_DOCUMENTS = []
 
-const INIT_APPRAISALS = [
-  { id: 1, empId: 1, period: 'Q2 2025', date: '2025-06-15', reviewer: 'Hassan Malik', scores: { quality: 4.5, productivity: 4.2, communication: 4.0, teamwork: 4.8, punctuality: 4.5 }, overallRating: 4.4, status: 'completed', comments: 'Excellent performance, consistently delivers high quality code. Strong team player.', goals: 'Lead the new microservices migration project next quarter.' },
-  { id: 2, empId: 2, period: 'Q2 2025', date: '2025-06-10', reviewer: 'Admin', scores: { quality: 4.0, productivity: 4.3, communication: 4.6, teamwork: 4.4, punctuality: 4.8 }, overallRating: 4.4, status: 'completed', comments: 'Great leadership in HR operations, well organized.', goals: 'Implement new performance review framework.' },
-  { id: 3, empId: 3, period: 'Q2 2025', date: '2025-06-20', reviewer: 'Hassan Malik', scores: { quality: 3.8, productivity: 3.5, communication: 4.0, teamwork: 4.0, punctuality: 4.5 }, overallRating: 3.9, status: 'pending', comments: '', goals: '' },
-  { id: 4, empId: 4, period: 'Q1 2025', date: '2025-03-15', reviewer: 'Zara Ahmed', scores: { quality: 4.2, productivity: 4.0, communication: 3.8, teamwork: 4.3, punctuality: 4.0 }, overallRating: 4.1, status: 'completed', comments: 'Solid backend work, good problem solving skills.', goals: 'Improve API documentation practices.' },
-]
+const INIT_APPRAISALS = []
 
-const INIT_TRAININGS = [
-  { id: 1, empId: 1, title: 'AWS Certified Solutions Architect', type: 'Certification', provider: 'Amazon Web Services', startDate: '2025-01-10', endDate: '2025-03-10', status: 'completed', certificateUrl: 'aws_cert_zara.pdf', expiryDate: '2028-03-10' },
-  { id: 2, empId: 1, title: 'Advanced React Patterns', type: 'Training', provider: 'Udemy', startDate: '2025-05-01', endDate: '2025-05-15', status: 'completed', certificateUrl: 'react_cert_zara.pdf', expiryDate: null },
-  { id: 3, empId: 2, title: 'SHRM-CP Certification', type: 'Certification', provider: 'SHRM', startDate: '2024-09-01', endDate: '2024-12-01', status: 'completed', certificateUrl: 'shrm_hassan.pdf', expiryDate: '2027-12-01' },
-  { id: 4, empId: 3, title: 'Financial Modeling & Valuation', type: 'Training', provider: 'CFI', startDate: '2025-06-01', endDate: '2025-07-01', status: 'in-progress', certificateUrl: null, expiryDate: null },
-  { id: 5, empId: 4, title: 'Docker & Kubernetes Mastery', type: 'Training', provider: 'Coursera', startDate: '2025-04-01', endDate: '2025-04-30', status: 'completed', certificateUrl: 'docker_omar.pdf', expiryDate: null },
-  { id: 6, empId: 5, title: 'Google Ads Certification', type: 'Certification', provider: 'Google', startDate: '2024-08-01', endDate: '2024-08-15', status: 'completed', certificateUrl: 'gads_sana.pdf', expiryDate: '2025-08-15' },
-]
+const INIT_TRAININGS = []
 
 const STATUS_COL = { completed: '#34d399', pending: '#fbbf24', 'in-progress': '#818cf8', expired: '#f87171' }
 
