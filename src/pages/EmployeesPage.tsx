@@ -313,8 +313,8 @@ const EmployeeForm = ({ initial, onSave, onClose }: { initial?: Partial<FormData
             <Field label="Status"><Sel value={form.status} onChange={setF("status")} options={["active", "inactive"]} /></Field>
           </div>
           <div style={g2}>
-            <Field label="First Name"><input style={inputStyle} value={form.firstName} onChange={e => setF("firstName")(e.target.value)} placeholder="Ali" /></Field>
-            <Field label="Last Name"><input style={inputStyle} value={form.lastName} onChange={e => setF("lastName")(e.target.value)} placeholder="Raza" /></Field>
+            <Field label="First Name"><input style={inputStyle} spellCheck={false} value={form.firstName} onChange={e => setF("firstName")(e.target.value)} placeholder="Ali" /></Field>
+            <Field label="Last Name"><input style={inputStyle} spellCheck={false} value={form.lastName} onChange={e => setF("lastName")(e.target.value)} placeholder="Raza" /></Field>
           </div>
           <div style={g2}>
             <Field label="Email"><input style={inputStyle} type="email" value={form.email} onChange={e => setF("email")(e.target.value)} placeholder="ali@company.com" /></Field>

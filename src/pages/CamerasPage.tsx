@@ -115,13 +115,13 @@ export default function CamerasPage() {
             <h2 className="text-lg font-semibold mb-4">Add Camera</h2>
             <form onSubmit={handleAdd} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Camera Name</label>
+                <label className="block text-sm font-medium text-gray-800 mb-1">Camera Name</label>
                 <input value={form.name} onChange={e => setForm({...form, name: e.target.value})}
                   placeholder="Main Entrance" required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Connection Method</label>
+                <label className="block text-sm font-medium text-gray-800 mb-1">Connection Method</label>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setForm({ ...form, connection_type: 'rtsp' })}
                     className={clsx('flex-1 px-3 py-2 rounded-lg text-sm font-medium border', form.connection_type === 'rtsp' ? 'bg-accent text-white border-accent' : 'bg-white text-gray-600 border-gray-300')}>
@@ -136,7 +136,7 @@ export default function CamerasPage() {
 
               {form.connection_type === 'rtsp' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">RTSP URL</label>
+                  <label className="block text-sm font-medium text-gray-800 mb-1">RTSP URL</label>
                   <input value={form.rtsp_url} onChange={e => setForm({...form, rtsp_url: e.target.value})}
                     placeholder="rtsp://192.168.1.100:554/stream1" required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
@@ -168,25 +168,25 @@ export default function CamerasPage() {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Camera IP / Host</label>
+                      <label className="block text-xs font-medium text-gray-800 mb-1">Camera IP / Host</label>
                       <input value={form.onvif_host} onChange={e => setForm({...form, onvif_host: e.target.value})}
                         placeholder="192.168.1.50" required
                         className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Port</label>
+                      <label className="block text-xs font-medium text-gray-800 mb-1">Port</label>
                       <input value={form.onvif_port} onChange={e => setForm({...form, onvif_port: e.target.value})}
                         placeholder="80"
                         className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Username</label>
+                      <label className="block text-xs font-medium text-gray-800 mb-1">Username</label>
                       <input value={form.onvif_username} onChange={e => setForm({...form, onvif_username: e.target.value})}
                         placeholder="admin"
                         className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                      <label className="block text-xs font-medium text-gray-800 mb-1">Password</label>
                       <input type="password" value={form.onvif_password} onChange={e => setForm({...form, onvif_password: e.target.value})}
                         placeholder="••••••••"
                         className="w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
@@ -195,23 +195,23 @@ export default function CamerasPage() {
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <label className="block text-sm font-medium text-gray-800 mb-1">Type</label>
                 <select value={form.camera_type} onChange={e => setForm({...form, camera_type: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-accent">
                   {['entry','exit','interior','desk'].map(t => <option key={t} value={t} className="text-gray-900 bg-white">{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <label className="block text-sm font-medium text-gray-800 mb-1">Location</label>
                 <input value={form.location_desc} onChange={e => setForm({...form, location_desc: e.target.value})}
                   placeholder="Front door, lobby..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-accent" />
               </div>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-gray-800">
                 <input type="checkbox" checked={form.is_entry_cam} onChange={e => setForm({...form, is_entry_cam: e.target.checked})} />
                 Mark as Entry Camera (triggers check-in)
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm text-gray-800">
                 <input type="checkbox" checked={form.is_exit_cam} onChange={e => setForm({...form, is_exit_cam: e.target.checked})} />
                 Mark as Exit Camera (triggers check-out)
               </label>
